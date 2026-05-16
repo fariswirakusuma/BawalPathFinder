@@ -1,0 +1,20 @@
+[package]
+name = "robot_simulation_interface"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# Core Bevy engine features
+bevy = { version = "0.15", features = ["dynamic_linking"] } 
+
+# Fast XML parser to read your URDF configurations natively
+roxmltree = "0.20"
+
+# Optional: High-performance linear algebra library if you need raw matrix transformations
+# alongside Bevy's built-in math tools
+glam = "0.29"
+
+# Enable maximum optimizations for underlying dependencies (like Bevy itself) 
+# even during quick local development compiles
+[profile.dev.package."*"]
+opt-level = 3
