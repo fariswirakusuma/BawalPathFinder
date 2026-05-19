@@ -1,6 +1,6 @@
 <library path="dual_planner_plugin">
   <class name="navigation/DualPlannerPlugin" 
-         type="my_custom_planner::DualPlannerPlugin" 
+         type="nav2planner::DualPlannerPlugin" 
          base_class_type="nav2_core::GlobalPlanner">
     <description>
       A custom Nav2 global planner prioritizing A* with Dijkstra fallback.

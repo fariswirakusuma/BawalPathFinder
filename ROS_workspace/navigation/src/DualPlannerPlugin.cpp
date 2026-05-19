@@ -1,7 +1,7 @@
 #include <DualPlannerPlugin.hpp>
 #include "pluginlib/class_list_macros.hpp"
 
-namespace my_custom_planner
+namespace nav2planner
 {
 
 void DualPlannerPlugin::configure(
@@ -9,6 +9,8 @@ void DualPlannerPlugin::configure(
   std::string name, std::shared_ptr<tf2_ros::Buffer> tf,
   std::shared_ptr<nav2_costmap_2d::Costmap2DROS> costmap_ros)
 {
+  (void)parent;
+  (void)tf;
   name_ = name;
   costmap_ros_ = costmap_ros;
   costmap_ = costmap_ros_->getCostmap();
@@ -66,6 +68,6 @@ nav_msgs::msg::Path DualPlannerPlugin::createPlan(
   return path;
 }
 
-} // namespace my_custom_planner
+} // namespace nav2planner
 
-PLUGINLIB_EXPORT_CLASS(my_custom_planner::DualPlannerPlugin, nav2_core::GlobalPlanner)
+PLUGINLIB_EXPORT_CLASS(nav2planner::DualPlannerPlugin, nav2_core::GlobalPlanner)

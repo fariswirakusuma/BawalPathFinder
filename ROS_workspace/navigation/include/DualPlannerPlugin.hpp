@@ -13,7 +13,7 @@
 #include "A_Star.hpp"
 #include "Djikstra.hpp"
 
-namespace my_custom_planner
+namespace nav2planner
 {
 
 class DualPlannerPlugin : public nav2_core::GlobalPlanner

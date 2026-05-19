@@ -5,20 +5,18 @@ from launch import LaunchDescription
 from launch_ros.actions import Node
 
 def generate_launch_description():
-    # Package configuration setup
-    # Replace 'localization' with your actual package name if different in package.xml
     pkg_name = 'localization' 
     
-    # Path to your EKF parameters file
+    #  EKF parameters path
     ekf_config_path = os.path.join(
         get_package_share_directory(pkg_name),
         'config',
-        'ekf.yaml'
+        'ekf.yml'
     )
 
-    # Declare the robot_localization node
-    robot_localization_node = Node(
-        package='robot_localization',
+    # robot_localization node
+    localization= Node(
+        package='localization',
         executable='ekf_node',
         name='ekf_filter_node',
         output='screen',
@@ -26,5 +24,5 @@ def generate_launch_description():
     )
 
     return LaunchDescription([
-        robot_localization_node
+        localization
     ])

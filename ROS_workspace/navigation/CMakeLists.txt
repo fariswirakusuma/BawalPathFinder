@@ -21,6 +21,8 @@ add_library(dual_planner_plugin SHARED
   src/Djikstra.cpp 
   src/PathFinder.cpp
 )
+
+
 target_include_directories(dual_planner_plugin
   PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -52,5 +54,5 @@ install(TARGETS dual_planner_plugin
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
 )
-
+pluginlib_export_plugin_description_file(nav2_core plugin_description.xml)
 ament_package()

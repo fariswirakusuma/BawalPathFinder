@@ -1,0 +1,169 @@
+<?xml version="1.0"?>
+<robot name="differential_drive_robot">
+
+  <!-- ========================================== -->
+  <!-- MATERIALS (Colors for RViz Visualization) -->
+  <!-- ========================================== -->
+  <material name="chassis_color">
+    <color rgba="0.1 0.5 0.8 1.0"/> <!-- Blue -->
+  </material>
+  <material name="wheel_color">
+    <color rgba="0.1 0.1 0.1 1.0"/> <!-- Dark Grey -->
+  </material>
+  <material name="sensor_color">
+    <color rgba="0.8 0.1 0.1 1.0"/> <!-- Red -->
+  </material>
+
+  <!-- ========================================== -->
+  <!-- LINKS (Physical Components)                -->
+  <!-- ========================================== -->
+
+  <!-- 1. Base Footprint: Ground projection link (Crucial for Nav2) -->
+  <link name="base_footprint"/>
+
+  <!-- 2. Chassis Link -->
+  <link name="base_link">
+    <visual>
+      <origin xyz="0.0 0.0 0.08" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.4 0.3 0.15"/>
+      </geometry>
+      <material name="chassis_color"/>
+    </visual>
+    <collision>
+      <origin xyz="0.0 0.0 0.08" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.4 0.3 0.15"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <!-- 3. Left Wheel Link -->
+  <link name="left_wheel">
+    <visual>
+      <origin xyz="0 0 0" rpy="1.5708 0 0"/> <!-- Rotated 90 degrees around X -->
+      <geometry>
+        <cylinder radius="0.06" length="0.04"/>
+      </geometry>
+      <material name="wheel_color"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="1.5708 0 0"/>
+      <geometry>
+        <cylinder radius="0.06" length="0.04"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <!-- 4. Right Wheel Link -->
+  <link name="right_wheel">
+    <visual>
+      <origin xyz="0 0 0" rpy="1.5708 0 0"/>
+      <geometry>
+        <cylinder radius="0.06" length="0.04"/>
+      </geometry>
+      <material name="wheel_color"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="1.5708 0 0"/>
+      <geometry>
+        <cylinder radius="0.06" length="0.04"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <!-- 5. Front Caster Wheel Link (Passive turning ball) -->
+  <link name="caster_wheel">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <sphere radius="0.03"/>
+      </geometry>
+      <material name="wheel_color"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <sphere radius="0.03"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <!-- 6. LiDAR Sensor Link -->
+  <link name="laser_frame">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.04" length="0.04"/>
+      </geometry>
+      <material name="sensor_color"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.04" length="0.04"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <!-- 7. IMU Sensor Link -->
+  <link name="imu_link">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.02 0.02 0.01"/>
+      </geometry>
+      <material name="sensor_color"/>
+    </visual>
+  </link>
+
+
+  <!-- ========================================== -->
+  <!-- JOINTS (Connections and Kinematics)        -->
+  <!-- ========================================== -->
+
+  <!-- Footprint to Base Link (Static offset for wheel radius) -->
+  <joint name="base_footprint_joint" type="fixed">
+    <parent link="base_footprint"/>
+    <child link="base_link"/>
+    <origin xyz="0 0 0.06" rpy="0 0 0"/>
+  </joint>
+
+  <!-- Base Link to Left Wheel (Continuous rotation axis along Y-axis) -->
+  <joint name="left_wheel_joint" type="continuous">
+    <parent link="base_link"/>
+    <child link="left_wheel"/>
+    <origin xyz="-0.05 0.17 0" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+  </joint>
+
+  <!-- Base Link to Right Wheel (Continuous rotation axis along Y-axis) -->
+  <joint name="right_wheel_joint" type="continuous">
+    <parent link="base_link"/>
+    <child link="right_wheel"/>
+    <origin xyz="-0.05 -0.17 0" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+  </joint>
+
+  <!-- Base Link to Front Caster (Fixed or continuous depending on physics setup) -->
+  <joint name="caster_wheel_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="caster_wheel"/>
+    <origin xyz="0.13 0 -0.03" rpy="0 0 0"/>
+  </joint>
+
+  <!-- Base Link to LiDAR (Elevated on top of the chassis box) -->
+  <joint name="laser_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="laser_frame"/>
+    <origin xyz="0.1 0 0.175" rpy="0 0 0"/>
+  </joint>
+
+  <!-- Base Link to IMU (Centrally located) -->
+  <joint name="imu_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="imu_link"/>
+    <origin xyz="0 0 0.1" rpy="0 0 0"/>
+  </joint>
+
+</robot>
