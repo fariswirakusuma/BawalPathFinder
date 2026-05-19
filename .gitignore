@@ -1,4 +1,12 @@
+# ROS
 build
 log
 install
+#vscode
 .vscode
+# RUST
+target
+#PYTHON
+.venv
+venv
+__pycache__
