@@ -14,6 +14,7 @@ find_package(nav2_util REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(pluginlib REQUIRED)
+find_package(nlohmann_json REQUIRED)
 
 add_library(dual_planner_plugin SHARED
   src/DualPlannerPlugin.cpp
@@ -38,6 +39,14 @@ ament_target_dependencies(dual_planner_plugin
   nav_msgs
   pluginlib
 )
+add_executable(backend_test_node src/TestNode.cpp)
+
+ament_target_dependencies(backend_test_node
+  rclcpp
+  rclcpp_action
+  nav2_msgs
+  nlohmann_json
+)
 install(DIRECTORY
   launch
   config
@@ -53,6 +62,10 @@ install(TARGETS dual_planner_plugin
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
+)
+
+install(TARGETS backend_test_node
+  DESTINATION lib/${PROJECT_NAME}
 )
 pluginlib_export_plugin_description_file(nav2_core plugin_description.xml)
 ament_package()
