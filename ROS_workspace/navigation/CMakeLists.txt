@@ -37,6 +37,7 @@ ament_target_dependencies(dual_planner_plugin
   nav2_util
   geometry_msgs
   nav_msgs
+  rclcpp_action
   pluginlib
 )
 add_executable(backend_test_node src/TestNode.cpp)
@@ -46,6 +47,9 @@ ament_target_dependencies(backend_test_node
   rclcpp_action
   nav2_msgs
   nlohmann_json
+  nav_msgs
+  sensor_msgs
+  std_srvs
 )
 install(DIRECTORY
   launch

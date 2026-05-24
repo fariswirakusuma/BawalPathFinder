@@ -1,5 +1,6 @@
 #include <PathFinder.hpp>
 #include "nav2_costmap_2d/cost_values.hpp"
+
 PathFinder::PathFinder(nav2_costmap_2d::Costmap2D* costmap) : costmap_(costmap) {
     nx_ = costmap_->getSizeInCellsX();
     ny_ = costmap_->getSizeInCellsY();

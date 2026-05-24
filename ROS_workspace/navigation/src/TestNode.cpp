@@ -1,8 +1,11 @@
 #include "rclcpp/rclcpp.hpp"
 #include "nav2_msgs/action/compute_path_to_pose.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
+#include "sensor_msgs/msg/laser_scan.hpp" 
 #include <fstream>
 #include <nlohmann/json.hpp> 
+#include <cstdlib>
+#include <cmath>
 
 using json = nlohmann::json;
 
@@ -14,6 +17,9 @@ public:
     }
 
     void send_goal() {
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        inject_obstacles_to_costmap();
+        
         if (!this->client_->wait_for_action_server(std::chrono::seconds(5))) {
             RCLCPP_ERROR(this->get_logger(), "Action server tidak ditemukan!");
             return;
@@ -25,7 +31,6 @@ public:
         goal_msg.goal.pose.position.y = 0.5;
         goal_msg.planner_id = "GridBased";
         
-        // Memaksa titik awal (start) secara eksplisit agar tidak bergantung pada amcl/transformasi lokalisasi
         goal_msg.use_start = true;
         goal_msg.start.header.frame_id = "map";
         goal_msg.start.pose.position.x = 0.0;
@@ -40,13 +45,59 @@ public:
             goal_msg.goal.header.frame_id.c_str());
 
         auto send_goal_options = rclcpp_action::Client<nav2_msgs::action::ComputePathToPose>::SendGoalOptions();
+        send_goal_options.goal_response_callback = std::bind(&TestNode::goal_response_callback, this, std::placeholders::_1);
         send_goal_options.result_callback = std::bind(&TestNode::result_callback, this, std::placeholders::_1);
         
         this->client_->async_send_goal(goal_msg, send_goal_options);
     }
 
+    void inject_obstacles_to_costmap() {
+        std::ifstream file("../Test/backendTest/obstacles.json");
+        if (!file.is_open()) {
+            RCLCPP_ERROR(this->get_logger(), "Gagal membuka obstacles.json");
+            return;
+        }
+
+        json obstacles;
+        file >> obstacles;
+
+        auto pub = this->create_publisher<sensor_msgs::msg::LaserScan>("/scan", 10);
+        auto scan = sensor_msgs::msg::LaserScan();
+        
+        scan.header.stamp = this->now();
+        scan.header.frame_id = "map";
+        scan.angle_min = -3.14;
+        scan.angle_max = 3.14;
+        scan.angle_increment = 0.01;
+        scan.range_min = 0.0;
+        scan.range_max = 10.0;
+
+        std::vector<float> ranges(629, 10.0);
+        for (const auto& obs : obstacles) {
+            float x = obs["x"];
+            float y = obs["y"];
+            float dist = std::sqrt(x*x + y*y);
+            if (dist < 10.0) {
+                int index = static_cast<int>((std::atan2(y, x) + 3.14) / 0.01);
+                if (index >= 0 && index < 629) ranges[index] = dist;
+            }
+        }
+        scan.ranges = ranges;
+        pub->publish(scan);
+        RCLCPP_INFO(this->get_logger(), "Rintangan disuntikkan ke /scan.");
+    }
+
 private:
-   void result_callback(const rclcpp_action::ClientGoalHandle<nav2_msgs::action::ComputePathToPose>::WrappedResult & result) {
+    void goal_response_callback(const rclcpp_action::ClientGoalHandle<nav2_msgs::action::ComputePathToPose>::SharedPtr & goal_handle) {
+        if (!goal_handle) {
+            RCLCPP_ERROR(this->get_logger(), "Goal ditolak oleh server!");
+        } else {
+            RCLCPP_INFO(this->get_logger(), "Goal diterima oleh server. Menyimpan goal handle...");
+            this->goal_handle_ = goal_handle;
+        }
+    }
+
+    void result_callback(const rclcpp_action::ClientGoalHandle<nav2_msgs::action::ComputePathToPose>::WrappedResult & result) {
         RCLCPP_INFO(this->get_logger(), "Menerima result dari planner...");
         
         if (result.code != rclcpp_action::ResultCode::SUCCEEDED) {
@@ -76,7 +127,9 @@ private:
             RCLCPP_ERROR(this->get_logger(), "Gagal membuka file! Apakah folder Test/backendTest ada?");
         }
     }
+
     rclcpp_action::Client<nav2_msgs::action::ComputePathToPose>::SharedPtr client_;
+    rclcpp_action::ClientGoalHandle<nav2_msgs::action::ComputePathToPose>::SharedPtr goal_handle_; 
 };
 
 int main(int argc, char * argv[])
