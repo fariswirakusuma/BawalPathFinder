@@ -11,6 +11,8 @@ pkill -f waypoint_follower
 pkill -f velocity_smoother
 pkill -f tf2_ros
 pkill -f component_container
+pkill -f rosbridge
+
 sleep 2
 
 # setup
@@ -33,6 +35,9 @@ ros2 launch nav2_bringup navigation_launch.py params_file:="$PARAMS_FILE" &
 # tf tree
 ros2 run tf2_ros static_transform_publisher 0 0 0 0 0 0 map odom &
 ros2 run tf2_ros static_transform_publisher 0 0 0 0 0 0 odom base_footprint &
+
+# ros_bridge
+ros2 run rosbridge_server rosbridge_websocket &
 
 # wait initialize
 sleep 15

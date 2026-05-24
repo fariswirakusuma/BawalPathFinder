@@ -1,14 +1,25 @@
 use bevy::prelude::*;
+use bevy_html_tailwind::HtmlTailwindPlugin;
 
-// 1. Tell Rust to look for these modules inside your src directory
+mod menu;
 mod panels;
 mod simulation_2d;
 mod simulation_3d;
 
+#[derive(States, Debug, Clone, Copy, Eq, PartialEq, Hash, Default)]
+pub enum AppState {
+    #[default]
+    MainMenu,
+    Sim2D,
+    Sim3D,
+}
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        // 2. Load your custom Bevy plugins from your subfolders
+        .add_plugins(HtmlTailwindPlugin { hot_reload: true })
+        .init_state::<AppState>() 
+        .add_plugins(menu::MenuPlugin)
         .add_plugins(simulation_2d::Simulation2dPlugin)
         .add_plugins(simulation_3d::Simulation3dPlugin)
         .add_plugins(panels::UiPanelPlugin)
