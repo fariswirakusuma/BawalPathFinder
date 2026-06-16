@@ -1,5 +1,4 @@
-#ifndef SELECTABLE_PLANNER_HPP_
-#define SELECTABLE_PLANNER_HPP_
+#pragma once
 
 #include <string>
 #include <memory>
@@ -10,7 +9,7 @@
 #include "nav2_util/lifecycle_node.hpp"
 #include "nav2_costmap_2d/costmap_2d_ros.hpp"
 
-namespace navigation
+namespace nav2planner
 {
 
 class SelectablePlanner : public nav2_core::GlobalPlanner
@@ -44,5 +43,3 @@ private:
 };
 
 }  
-
-#endif 

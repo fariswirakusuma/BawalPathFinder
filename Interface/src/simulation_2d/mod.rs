@@ -8,6 +8,8 @@ use tungstenite::{connect, Message};
 use url::Url;
 
 use crate::AppState;
+pub mod message;
+use self::message::{SimulationPayload, MapSize, Point2D};
 
 pub struct Simulation2dPlugin;
 
@@ -20,10 +22,21 @@ pub struct Point {
     pub y: f32,
 }
 
-#[derive(Resource, Default)]
+#[derive(Resource)] 
 pub struct SimulationState {
     pub obstacles: Vec<Point>,
     pub path: Vec<Point>,
+    pub selected_algorithm: String,
+}
+
+impl Default for SimulationState {
+    fn default() -> Self {
+        Self {
+            obstacles: Vec::new(),
+            path: Vec::new(),
+            selected_algorithm: "AStar".to_string(),
+        }
+    }
 }
 
 #[derive(Resource)]
@@ -54,12 +67,26 @@ fn setup_2d_grid(mut commands: Commands) {
 }
 
 fn setup_rosbridge(mut commands: Commands) {
-    let (tx_out, rx_out) = mpsc::channel::<String>(); // Bevy -> ROS
-    let (tx_in, rx_in) = mpsc::channel::<String>();   // ROS -> Bevy
+    let (tx_out, rx_out) = mpsc::channel::<String>(); 
+    let (tx_in, rx_in) = mpsc::channel::<String>(); 
 
     thread::spawn(move || {
         let url = Url::parse(ROSBRIDGE_URL).expect("URL tidak valid");
-        let (mut socket, _) = connect(url).expect("Gagal koneksi ke rosbridge");
+        let mut socket;
+        loop {
+            match connect(url.clone()) {
+                Ok((s, _)) => {
+                    socket = s;
+                    println!("Terhubung ke ROSBridge di {}", ROSBRIDGE_URL);
+                    break;
+                }
+                Err(_) => {
+                    println!("Menunggu ROSBridge siap...");
+                    thread::sleep(std::time::Duration::from_secs(2));
+                }
+            }
+        }
+
         match socket.get_mut() {
             tungstenite::stream::MaybeTlsStream::Plain(s) => s.set_nonblocking(true).unwrap(),
             _ => (),
@@ -92,6 +119,7 @@ fn setup_rosbridge(mut commands: Commands) {
         rx: std::sync::Mutex::new(rx_in),
     });
 }
+
 
 fn receive_path_data(mut state: ResMut<SimulationState>, bridge: Res<RosBridge>) {
     while let Ok(msg) = bridge.rx.lock().unwrap().try_recv() {
@@ -155,8 +183,16 @@ fn handle_click(
             }
         }
     }
+
     if data_changed {
-        if let Ok(json_str) = serde_json::to_string(&state.obstacles) {
+        let payload = SimulationPayload {
+            map_size: MapSize { width: 20.0, height: 20.0, resolution: 0.05 },
+            goal: Point2D { x: 5.0, y: 5.0 },
+            algorithm: state.selected_algorithm.clone(),
+            obstacles: state.obstacles.iter().map(|p| Point2D { x: p.x as f64, y: p.y as f64 }).collect(),
+        };
+
+        if let Ok(json_str) = serde_json::to_string(&payload) {
             let pub_msg = serde_json::json!({
                 "op": "publish",
                 "topic": "/frontend/obstacles",

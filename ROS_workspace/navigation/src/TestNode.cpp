@@ -1,13 +1,13 @@
 #include "rclcpp/rclcpp.hpp"
 #include "nav2_msgs/action/compute_path_to_pose.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
-#include "sensor_msgs/msg/laser_scan.hpp" 
+#include "nav_msgs/msg/occupancy_grid.hpp"
 #include "std_msgs/msg/string.hpp"
 #include "tf2_ros/transform_broadcaster.h"
 #include "geometry_msgs/msg/transform_stamped.hpp"
 #include <nlohmann/json.hpp> 
-#include <cstdlib>
 #include <cmath>
+#include <vector>
 
 using json = nlohmann::json;
 
@@ -17,29 +17,26 @@ public:
         this->client_ = rclcpp_action::create_client<nav2_msgs::action::ComputePathToPose>(
             this, "/compute_path_to_pose");
             
-        this->scan_pub_ = this->create_publisher<sensor_msgs::msg::LaserScan>("/scan", 10);
+        rclcpp::QoS map_qos(rclcpp::KeepLast(1));
+        map_qos.transient_local();
+        this->map_pub_ = this->create_publisher<nav_msgs::msg::OccupancyGrid>("/map", map_qos);
         
-        // Subscriber untuk menerima rintangan peta
         this->obs_sub_ = this->create_subscription<std_msgs::msg::String>(
             "/frontend/obstacles", 10,
             std::bind(&TestNode::obstacle_callback, this, std::placeholders::_1));
 
-        // Subscriber untuk menerima inisialisasi posisi awal dari Bevy
         this->init_pose_sub_ = this->create_subscription<std_msgs::msg::String>(
             "/frontend/initialpose", 10,
             std::bind(&TestNode::initialpose_callback, this, std::placeholders::_1));
 
-        // Inisialisasi TF Broadcaster
         this->tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
-        
-        // Timer untuk mempublikasikan TF odom -> base_footprint secara terus-menerus pada 20Hz (50ms)
         this->timer_ = this->create_wall_timer(
             std::chrono::milliseconds(50), std::bind(&TestNode::broadcast_tf, this));
             
-        RCLCPP_INFO(this->get_logger(), "Backend Test Node aktif. Menunggu inisialisasi posisi dan peta dari Bevy...");
+        RCLCPP_INFO(this->get_logger(), "Backend Test Node aktif. Menggunakan OccupancyGrid & Dynamic Planner.");
     }
 
-    void send_goal(double goal_x, double goal_y) {
+    void send_goal(double goal_x, double goal_y, const std::string& planner_id) {
         if (!this->client_->wait_for_action_server(std::chrono::seconds(5))) {
             RCLCPP_ERROR(this->get_logger(), "Action server tidak ditemukan!");
             return;
@@ -49,9 +46,8 @@ public:
         goal_msg.goal.header.frame_id = "map";
         goal_msg.goal.pose.position.x = goal_x; 
         goal_msg.goal.pose.position.y = goal_y;
-        goal_msg.planner_id = "GridBased";
+        goal_msg.planner_id = planner_id; 
         
-        // Gunakan current_x_ dan current_y_ yang disetel dari UI sebagai titik mulai kalkulasi
         goal_msg.use_start = true;
         goal_msg.start.header.frame_id = "map";
         goal_msg.start.pose.position.x = current_x_;
@@ -77,12 +73,7 @@ private:
         t.transform.translation.x = current_x_;
         t.transform.translation.y = current_y_;
         t.transform.translation.z = 0.0;
-        
-        t.transform.rotation.x = 0.0;
-        t.transform.rotation.y = 0.0;
-        t.transform.rotation.z = 0.0;
         t.transform.rotation.w = 1.0;
-
         tf_broadcaster_->sendTransform(t);
     }
 
@@ -91,7 +82,6 @@ private:
             json pose = json::parse(msg->data);
             current_x_ = pose["x"];
             current_y_ = pose["y"];
-            RCLCPP_INFO(this->get_logger(), "Inisialisasi posisi diperbarui ke x: %.2f, y: %.2f", current_x_, current_y_);
         } catch (const std::exception& e) {
             RCLCPP_ERROR(this->get_logger(), "Error parsing JSON initialpose: %s", e.what());
         }
@@ -100,67 +90,69 @@ private:
     void obstacle_callback(const std_msgs::msg::String::SharedPtr msg) {
         try {
             json payload = json::parse(msg->data);
+            auto map_size = payload["map_size"];
             
-            // Asumsi struktur JSON sekarang mengirim obstacles dan goal point secara terpisah dalam satu request
-            json obstacles = payload["obstacles"];
-            double goal_x = payload["goal"]["x"];
-            double goal_y = payload["goal"]["y"];
-            
-            auto scan = sensor_msgs::msg::LaserScan();
-            scan.header.stamp = this->now();
-            scan.header.frame_id = "map";
-            scan.angle_min = -3.14;
-            scan.angle_max = 3.14;
-            scan.angle_increment = 0.01;
-            scan.range_min = 0.0;
-            scan.range_max = 10.0;
+            // Konversi dimensi ke grid cell
+            double res = map_size["resolution"];
+            int width = static_cast<int>(map_size["width"].get<double>() / res);
+            int height = static_cast<int>(map_size["height"].get<double>() / res);
 
-            std::vector<float> ranges(629, 10.0);
-            for (const auto& obs : obstacles) {
-                float x = obs["x"];
-                float y = obs["y"];
-                float dist = std::sqrt(x*x + y*y);
-                if (dist < 10.0) {
-                    int index = static_cast<int>((std::atan2(y, x) + 3.14) / 0.01);
-                    if (index >= 0 && index < 629) ranges[index] = dist;
+            auto grid = nav_msgs::msg::OccupancyGrid();
+            grid.header.stamp = this->now();
+            grid.header.frame_id = "map";
+            grid.info.resolution = res;
+            grid.info.width = width;
+            grid.info.height = height;
+            
+            // Centering map
+            grid.info.origin.position.x = -(map_size["width"].get<double>() / 2.0);
+            grid.info.origin.position.y = -(map_size["height"].get<double>() / 2.0);
+            grid.info.origin.orientation.w = 1.0;
+
+            grid.data.assign(width * height, 0); 
+
+            // Plot rintangan
+            for (const auto& obs : payload["obstacles"]) {
+                double ox = obs["x"];
+                double oy = obs["y"];
+                int mx = static_cast<int>((ox - grid.info.origin.position.x) / res);
+                int my = static_cast<int>((oy - grid.info.origin.position.y) / res);
+
+                if (mx >= 0 && mx < width && my >= 0 && my < height) {
+                    grid.data[my * width + mx] = 100; 
                 }
             }
-            scan.ranges = ranges;
-            this->scan_pub_->publish(scan);
+
+            this->map_pub_->publish(grid);
             
-            // Pemicu komputasi dengan goal baru
-            this->send_goal(goal_x, goal_y);
+            std::string algo = payload["algorithm"];
+            this->send_goal(payload["goal"]["x"], payload["goal"]["y"], algo);
 
         } catch (const std::exception& e) {
-            RCLCPP_ERROR(this->get_logger(), "Error parsing JSON obstacle/goal: %s", e.what());
+            RCLCPP_ERROR(this->get_logger(), "Error parsing payload: %s", e.what());
         }
     }
 
-    void goal_response_callback(const rclcpp_action::ClientGoalHandle<nav2_msgs::action::ComputePathToPose>::SharedPtr & goal_handle) {
-        if (!goal_handle) RCLCPP_ERROR(this->get_logger(), "Goal ditolak!");
+    void goal_response_callback(const rclcpp_action::ClientGoalHandle<nav2_msgs::action::ComputePathToPose>::SharedPtr & gh) {
+        if (!gh) RCLCPP_ERROR(this->get_logger(), "Goal ditolak!");
     }
 
-    void result_callback(const rclcpp_action::ClientGoalHandle<nav2_msgs::action::ComputePathToPose>::WrappedResult & result) {
-        if (result.code != rclcpp_action::ResultCode::SUCCEEDED) {
-            RCLCPP_ERROR(this->get_logger(), "Gagal kalkulasi rute!");
-            return;
-        }
+    void result_callback(const rclcpp_action::ClientGoalHandle<nav2_msgs::action::ComputePathToPose>::WrappedResult & res) {
+        if (res.code != rclcpp_action::ResultCode::SUCCEEDED) return;
         RCLCPP_INFO(this->get_logger(), "Rute dikalkulasi.");
     }
 
     rclcpp_action::Client<nav2_msgs::action::ComputePathToPose>::SharedPtr client_;
     rclcpp::Subscription<std_msgs::msg::String>::SharedPtr obs_sub_;
     rclcpp::Subscription<std_msgs::msg::String>::SharedPtr init_pose_sub_;
-    rclcpp::Publisher<sensor_msgs::msg::LaserScan>::SharedPtr scan_pub_;
+    rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>::SharedPtr map_pub_;
     std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
     rclcpp::TimerBase::SharedPtr timer_;
 };
 
-int main(int argc, char * argv[])
-{
+int main(int argc, char * argv[]) {
   rclcpp::init(argc, argv);
-  auto node = std::make_shared<TestNode>();
-  rclcpp::spin(node);
+  rclcpp::spin(std::make_shared<TestNode>());
   rclcpp::shutdown();
   return 0;
 }

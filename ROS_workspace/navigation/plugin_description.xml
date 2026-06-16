@@ -1,9 +1,9 @@
-<library path="dual_planner_plugin">
-  <class name="navigation/DualPlannerPlugin" 
-         type="nav2planner::DualPlannerPlugin" 
+<library path="selectable_planner">
+  <class name="navigation/SelectablePlanner" 
+         type="nav2planner::SelectablePlanner" 
          base_class_type="nav2_core::GlobalPlanner">
     <description>
-      A custom Nav2 global planner prioritizing A* with Dijkstra fallback.
+      A custom Nav2 global planner supporting dynamic algorithm selection (A*, Dijkstra, GBFS) via frontend payload.
     </description>
   </class>
 </library>

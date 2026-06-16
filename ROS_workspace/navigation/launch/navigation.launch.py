@@ -57,13 +57,13 @@ def generate_launch_description():
     # )
 
     # Link Segment 3: Base Footprint to Base Link (Resolves Controller Timeout)
-    fake_base_link_bridge = Node(
-        package='tf2_ros',
-        executable='static_transform_publisher',
-        name='fake_base_link_publisher',
-        output='screen',
-        arguments=['0', '0', '0', '0', '0', '0', 'base_footprint', 'base_link']
-    )
+    # fake_base_link_bridge = Node(
+    #     package='tf2_ros',
+    #     executable='static_transform_publisher',
+    #     name='fake_base_link_publisher',
+    #     output='screen',
+    #     arguments=['0', '0', '0', '0', '0', '0', 'base_footprint', 'base_link']
+    # )
 
     nav2_launch_cmd = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
@@ -87,7 +87,7 @@ def generate_launch_description():
     # Inject all three static transform broadcasters into the execution loop
     ld.add_action(fake_map_bridge)
     # ld.add_action(fake_odometry_bridge)
-    ld.add_action(fake_base_link_bridge)
+    # ld.add_action(fake_base_link_bridge)
     ld.add_action(fake_odom_publisher)
     
     ld.add_action(nav2_launch_cmd)

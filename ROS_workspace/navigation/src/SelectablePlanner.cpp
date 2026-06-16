@@ -1,13 +1,11 @@
 #include "SelectablePlanner.hpp"
 #include "nav2_util/node_utils.hpp"
 #include <pluginlib/class_list_macros.hpp>
-
-// Header algoritma pencarian
 #include "A_Star_Solver.hpp"
 #include "Dijkstra_Solver.hpp"
 #include "GBFS_Solver.hpp"
 
-namespace navigation
+namespace nav2planner
 {
 
 void SelectablePlanner::configure(
@@ -21,11 +19,11 @@ void SelectablePlanner::configure(
   costmap_ = costmap_ros_->getCostmap();
   global_frame_ = costmap_ros_->getGlobalFrameID();
 
-  // Deklarasi parameter jika belum ada di nav2_params.yaml
+  (void)tf;
+
   nav2_util::declare_parameter_if_not_declared(
     node, name_ + ".algorithm", rclcpp::ParameterValue("A_STAR"));
   
-  // Ambil parameter algoritma
   node->get_parameter(name_ + ".algorithm", selected_algorithm_);
   
   RCLCPP_INFO(node->get_logger(), "SelectablePlanner dikonfigurasi. Algoritma aktif: %s", selected_algorithm_.c_str());
@@ -43,7 +41,6 @@ nav_msgs::msg::Path SelectablePlanner::createPlan(
   final_path.header.stamp = start.header.stamp;
   final_path.header.frame_id = global_frame_;
 
-  // 1. Validasi batas koordinat dan konversi ke index Grid 2D Costmap
   unsigned int mx_start, my_start, mx_goal, my_goal;
   if (!costmap_->worldToMap(start.pose.position.x, start.pose.position.y, mx_start, my_start) ||
       !costmap_->worldToMap(goal.pose.position.x, goal.pose.position.y, mx_goal, my_goal)) {
@@ -53,8 +50,6 @@ nav_msgs::msg::Path SelectablePlanner::createPlan(
 
   unsigned int start_idx = costmap_->getIndex(mx_start, my_start);
   unsigned int goal_idx = costmap_->getIndex(mx_goal, my_goal);
-
-  // 2. Instansiasi objek solver sesuai parameter (Polimorfisme)
   std::unique_ptr<PathFinder> solver;
 
   if (selected_algorithm_ == "A_STAR") {
@@ -69,10 +64,8 @@ nav_msgs::msg::Path SelectablePlanner::createPlan(
       solver = std::make_unique<A_Star_Solver>(costmap_);
   }
 
-  // 3. Eksekusi pencarian rute mengembalikan array index 1D
   std::vector<unsigned int> path_indices = solver->createPath(start_idx, goal_idx);
 
-  // 4. Transformasi index 1D kembali ke array PoseStamped Nav2
   for (unsigned int idx : path_indices) {
       unsigned int mx, my;
       costmap_->indexToCells(idx, mx, my);
@@ -91,7 +84,7 @@ nav_msgs::msg::Path SelectablePlanner::createPlan(
   return final_path;
 }
 
-}  // namespace navigation
+} 
 
-// Ekspor plugin agar dikenali oleh Nav2 Planner Server
-PLUGINLIB_EXPORT_CLASS(navigation::SelectablePlanner, nav2_core::GlobalPlanner)
+#include "pluginlib/class_list_macros.hpp"
+PLUGINLIB_EXPORT_CLASS(nav2planner::SelectablePlanner, nav2_core::GlobalPlanner)

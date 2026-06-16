@@ -10,6 +10,7 @@ mod simulation_3d;
 pub enum AppState {
     #[default]
     MainMenu,
+    AlgorithmSelection2D,
     Sim2D,
     Sim3D,
 }

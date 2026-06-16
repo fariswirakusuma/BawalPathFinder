@@ -2,9 +2,18 @@ planner_server:
   ros__parameters:
     use_sim_time: false
     expected_planner_frequency: 20.0
-    planner_plugins: ["GridBased"]
-    GridBased:
-      plugin: "navigation/DualPlannerPlugin"
+    planner_plugins: ["AStar", "UCS", "GBFS"]
+    AStar:
+      plugin: "navigation/SelectablePlanner"
+      algorithm: "A_STAR"
+      
+    UCS:
+      plugin: "navigation/SelectablePlanner"
+      algorithm: "UCS"
+      
+    GBFS:
+      plugin: "navigation/SelectablePlanner"
+      algorithm: "GBFS"
 
 global_costmap:
   global_costmap:

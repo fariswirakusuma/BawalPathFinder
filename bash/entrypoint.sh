@@ -4,7 +4,8 @@ set -e
 # Source ROS 2 base environment
 source /opt/ros/humble/setup.bash
 
-# Clean & Build workspace
+# Clean & Build workspace 
+echo "=== Building ROS 2 Workspace ==="
 rm -rf build/ install/ log/
 colcon build
 
@@ -13,19 +14,17 @@ source install/setup.bash
 
 PARAMS_FILE="/workspace/navigation/config/nav2_params.yaml"
 
-# # ros2 init pos (temp)
-# ros2 launch nav2_bringup navigation_launch.py params_file:="$PARAMS_FILE" &
-# ros2 run tf2_ros static_transform_publisher 0 0 0 0 0 0 map odom &
-# ros2 run tf2_ros static_transform_publisher 0 0 0 0 0 0 odom base_footprint &
-# ros2 run rosbridge_server rosbridge_websocket &
-
-# def pos (background)
+echo "=== Launching Nav2 & TF ==="
 ros2 launch nav2_bringup navigation_launch.py params_file:="$PARAMS_FILE" &
+
 ros2 run tf2_ros static_transform_publisher 0 0 0 0 0 0 map odom &
-ros2 run rosbridge_server rosbridge_websocket &
+ros2 run tf2_ros static_transform_publisher 0 0 0 0 0 0 odom base_footprint &
+ros2 run tf2_ros static_transform_publisher 0 0 0 0 0 0 base_footprint base_link &
 
-# Nav2 init
-sleep 15
+sleep 5
 
-# TestNode
-exec ros2 run navigation backend_test_node
+echo "=== Running Backend Test Node ==="
+ros2 run navigation backend_test_node &
+
+echo "=== Starting ROSBridge Server (Foreground) ==="
+exec ros2 run rosbridge_server rosbridge_websocket
