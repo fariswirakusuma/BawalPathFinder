@@ -1,4 +1,4 @@
-#include <A_Star.hpp>
+#include <A_Star_Solver.hpp>
 #include <limits>
 #include <algorithm>
 #include <cmath>

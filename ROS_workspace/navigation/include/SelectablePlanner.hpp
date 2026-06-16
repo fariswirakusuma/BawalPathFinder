@@ -1,26 +1,23 @@
-#pragma once
+#ifndef SELECTABLE_PLANNER_HPP_
+#define SELECTABLE_PLANNER_HPP_
 
-#include <memory>
 #include <string>
+#include <memory>
 #include "rclcpp/rclcpp.hpp"
 #include "geometry_msgs/msg/pose_stamped.hpp"
-#include "nav_msgs/msg/path.hpp"
 #include "nav2_core/global_planner.hpp"
-#include "nav2_util/robot_utils.hpp"
+#include "nav_msgs/msg/path.hpp"
 #include "nav2_util/lifecycle_node.hpp"
 #include "nav2_costmap_2d/costmap_2d_ros.hpp"
 
-#include "A_Star.hpp"
-#include "Djikstra.hpp"
-
-namespace nav2planner
+namespace navigation
 {
 
-class DualPlannerPlugin : public nav2_core::GlobalPlanner
+class SelectablePlanner : public nav2_core::GlobalPlanner
 {
 public:
-  DualPlannerPlugin() = default;
-  ~DualPlannerPlugin() = default;
+  SelectablePlanner() = default;
+  ~SelectablePlanner() = default;
 
   void configure(
     const rclcpp_lifecycle::LifecycleNode::WeakPtr & parent,
@@ -37,8 +34,15 @@ public:
 
 private:
   std::shared_ptr<nav2_costmap_2d::Costmap2DROS> costmap_ros_;
+  
   nav2_costmap_2d::Costmap2D * costmap_;
-  std::string global_frame_, name_;
+  
+  std::string global_frame_;
+  std::string name_;
+  
+  std::string selected_algorithm_;
 };
 
-}
+}  
+
+#endif 

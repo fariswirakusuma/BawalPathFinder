@@ -16,4 +16,9 @@ sleep 2
 WORKSPACE_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$WORKSPACE_ROOT/ROS_workspace" || exit 1
 
-rm -rf build/ install/ log/
+if [ "$1" == "--clean" ]; then
+    echo "=== Cleaning local build artifacts ==="
+    rm -rf build/ install/ log/
+else
+    echo "=== Skipping clean: Using incremental build ==="
+fi

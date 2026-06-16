@@ -1,10 +1,10 @@
-#include <Djikstra.hpp>
+#include <Dijkstra_Solver.hpp>
 #include <limits>
 #include <algorithm>
 
-Djikstra_Solver::Djikstra_Solver(nav2_costmap_2d::Costmap2D* costmap) : PathFinder(costmap) {}
+Dijkstra_Solver::Dijkstra_Solver(nav2_costmap_2d::Costmap2D* costmap) : PathFinder(costmap) {}
 
-std::vector<unsigned int> Djikstra_Solver::createPath(unsigned int start_idx, unsigned int goal_idx) {
+std::vector<unsigned int> Dijkstra_Solver::createPath(unsigned int start_idx, unsigned int goal_idx) {
     unsigned int map_size = nx_ * ny_;
     
     std::vector<float> g_costs(map_size, std::numeric_limits<float>::infinity());
