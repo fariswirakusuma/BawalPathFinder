@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use crate::simulation_2d::SimulationState;
-use crate::AppState;
+use crate::states::AppState;
 use std::fs;
 
 pub struct UiPanelPlugin;
@@ -10,12 +10,13 @@ struct PanelEntity;
 
 impl Plugin for UiPanelPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(OnEnter(AppState::Sim2D), setup_panel)
+        // PERBAIKAN: Ubah Sim2D menjadi Sim2DRun
+        app.add_systems(OnEnter(AppState::Sim2DRun), setup_panel)
            .add_systems(
                Update,
-               (update_panel_stats, handle_reset_button).run_if(in_state(AppState::Sim2D)),
+               (update_panel_stats, handle_reset_button).run_if(in_state(AppState::Sim2DRun)),
            )
-           .add_systems(OnExit(AppState::Sim2D), cleanup_panel);
+           .add_systems(OnExit(AppState::Sim2DRun), cleanup_panel);
     }
 }
 

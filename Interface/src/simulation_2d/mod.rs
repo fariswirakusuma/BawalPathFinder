@@ -7,7 +7,9 @@ use std::thread;
 use tungstenite::{connect, Message};
 use url::Url;
 
-use crate::AppState;
+use crate::states::AppState;
+use crate::navigation::{NavStack, pop_state};
+
 pub mod message;
 use self::message::{SimulationPayload, MapSize, Point2D};
 
@@ -45,6 +47,13 @@ pub struct RosBridge {
     pub rx: std::sync::Mutex<Receiver<String>>,
 }
 
+// UI Marker Components
+#[derive(Component)]
+pub struct LoadingUiMarker;
+
+#[derive(Component)]
+pub struct BackButton;
+
 const SCALE: f32 = 400.0;
 const GRID_SIZE: f32 = 0.05;
 const ROSBRIDGE_URL: &str = "ws://127.0.0.1:9090";
@@ -52,13 +61,103 @@ const ROSBRIDGE_URL: &str = "ws://127.0.0.1:9090";
 impl Plugin for Simulation2dPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<SimulationState>()
-            .add_systems(OnEnter(AppState::Sim2D), (setup_2d_grid, setup_rosbridge))
+            
+            // --- FASE 1: LOADING SCREEN ---
+            .add_systems(OnEnter(AppState::Sim2DLoading), (setup_rosbridge, setup_loading_screen))
+            .add_systems(Update, check_backend_ready.run_if(in_state(AppState::Sim2DLoading)))
+            .add_systems(OnExit(AppState::Sim2DLoading), cleanup_loading_screen)
+            
+            // --- FASE 2: SIMULASI BERJALAN ---
+            .add_systems(OnEnter(AppState::Sim2DRun), (setup_2d_grid, setup_back_button))
             .add_systems(
                 Update,
-                (handle_click, receive_path_data, draw_visualization)
-                    .run_if(in_state(AppState::Sim2D)),
+                (handle_click, receive_path_data, draw_visualization, handle_back_button)
+                    .run_if(in_state(AppState::Sim2DRun)),
             )
-            .add_systems(OnExit(AppState::Sim2D), cleanup_sim2d);
+            .add_systems(OnExit(AppState::Sim2DRun), (cleanup_sim2d, cleanup_back_button));
+    }
+}
+
+fn setup_loading_screen(mut commands: Commands) {
+    commands.spawn((Camera2d, LoadingUiMarker));
+    
+    commands.spawn((
+        Node {
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            ..default()
+        },
+        BackgroundColor(Color::srgba(0.1, 0.1, 0.1, 1.0)),
+        LoadingUiMarker,
+    )).with_children(|parent| {
+        parent.spawn((
+            Text::new("Connecting to ROS 2 Backend...\nPlease Wait."),
+            TextFont { font_size: 30.0, ..default() },
+            TextColor(Color::WHITE),
+        ));
+    });
+}
+
+fn check_backend_ready(
+    mut next_state: ResMut<NextState<AppState>>,
+    time: Res<Time>,
+    mut timer: Local<f32>,
+) {
+    *timer += time.delta_secs();
+    if *timer > 2.5 {
+        next_state.set(AppState::Sim2DRun);
+        *timer = 0.0;
+    }
+}
+
+fn cleanup_loading_screen(mut commands: Commands, query: Query<Entity, With<LoadingUiMarker>>) {
+    for entity in query.iter() {
+        commands.entity(entity).despawn();
+    }
+}
+
+
+fn setup_back_button(mut commands: Commands) {
+    commands.spawn((
+        Button,
+        Node {
+            width: Val::Px(100.0),
+            height: Val::Px(40.0),
+            position_type: PositionType::Absolute,
+            top: Val::Px(20.0),
+            left: Val::Px(20.0),
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            ..default()
+        },
+        BackgroundColor(Color::srgb(0.3, 0.3, 0.3)),
+        BackButton,
+    )).with_children(|parent| {
+        parent.spawn((
+            Text::new("< Back"),
+            TextFont { font_size: 18.0, ..default() },
+            TextColor(Color::WHITE),
+        ));
+    });
+}
+
+fn handle_back_button(
+    interaction_query: Query<&Interaction, (Changed<Interaction>, With<BackButton>)>,
+    mut next_state: ResMut<NextState<AppState>>,
+    mut nav_stack: ResMut<NavStack>,
+) {
+    for interaction in &interaction_query {
+        if *interaction == Interaction::Pressed {
+            pop_state(&mut next_state, &mut nav_stack);
+        }
+    }
+}
+
+fn cleanup_back_button(mut commands: Commands, query: Query<Entity, With<BackButton>>) {
+    for entity in &query {
+        commands.entity(entity).despawn();
     }
 }
 
@@ -77,11 +176,9 @@ fn setup_rosbridge(mut commands: Commands) {
             match connect(url.clone()) {
                 Ok((s, _)) => {
                     socket = s;
-                    println!("Terhubung ke ROSBridge di {}", ROSBRIDGE_URL);
                     break;
                 }
                 Err(_) => {
-                    println!("Menunggu ROSBridge siap...");
                     thread::sleep(std::time::Duration::from_secs(2));
                 }
             }
@@ -109,7 +206,6 @@ fn setup_rosbridge(mut commands: Commands) {
                 }
                 _ => {} 
             }
-            
             thread::sleep(std::time::Duration::from_millis(10));
         }
     });
@@ -119,7 +215,6 @@ fn setup_rosbridge(mut commands: Commands) {
         rx: std::sync::Mutex::new(rx_in),
     });
 }
-
 
 fn receive_path_data(mut state: ResMut<SimulationState>, bridge: Res<RosBridge>) {
     while let Ok(msg) = bridge.rx.lock().unwrap().try_recv() {
@@ -143,7 +238,7 @@ fn receive_path_data(mut state: ResMut<SimulationState>, bridge: Res<RosBridge>)
 fn handle_click(
     buttons: Res<ButtonInput<MouseButton>>,
     q_windows: Query<&Window, With<PrimaryWindow>>,
-    q_camera: Query<(&Camera, &GlobalTransform)>,
+    q_camera: Query<(&Camera, &GlobalTransform), With<Sim2DEntity>>,
     mut state: ResMut<SimulationState>,
     bridge: Res<RosBridge>,
 ) {

@@ -24,10 +24,8 @@ global_costmap:
       robot_base_frame: base_footprint
       use_sim_time: false
       
-      # Hapus "static_layer" dari plugins
-      plugins: ["obstacle_layer", "inflation_layer"]
+      plugins: ["static_layer", "obstacle_layer", "inflation_layer"]
       
-      # Parameter dimensi wajib ditambahkan jika tidak menggunakan static_layer
       width: 200
       height: 200
       resolution: 0.05
@@ -35,19 +33,26 @@ global_costmap:
       origin_y: -5.0
       rolling_window: false
 
+      static_layer:
+        plugin: "nav2_costmap_2d::StaticLayer"
+        map_subscribe_transient_local: true
+        enabled: true
+        subscribe_to_updates: true
+
       obstacle_layer:
         plugin: "nav2_costmap_2d::ObstacleLayer"
-        enabled: True
+        enabled: true
         observation_sources: scan
         scan:
-          topic: /scan
+          topic: /scan 
           max_obstacle_height: 2.0
-          clearing: True
-          marking: True
+          clearing: true
+          marking: true
           data_type: "LaserScan"
-          
+
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
+        enabled: true
         cost_scaling_factor: 5.0
         inflation_radius: 0.25
 

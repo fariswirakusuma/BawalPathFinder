@@ -1,5 +1,6 @@
 use bevy::prelude::*;
-use crate::AppState;
+use crate::states::AppState;
+use crate::navigation::{NavStack, push_state};
 use crate::simulation_2d::SimulationState;
 
 pub struct MenuPlugin;
@@ -139,6 +140,7 @@ fn setup_algo_menu(mut commands: Commands) {
 fn handle_algo_buttons(
     mut next_state: ResMut<NextState<AppState>>,
     mut sim_state: ResMut<SimulationState>,
+    mut nav_stack: ResMut<NavStack>, // Pastikan resource ini terdaftar
     mut interaction_query: Query<
         (&Interaction, &AlgoAction, &mut BackgroundColor),
         (Changed<Interaction>, With<Button>),
@@ -147,18 +149,28 @@ fn handle_algo_buttons(
     for (interaction, action, mut color) in &mut interaction_query {
         match *interaction {
             Interaction::Pressed => {
-                match action {
-                    AlgoAction::AStar => sim_state.selected_algorithm = "AStar".to_string(),
-                    AlgoAction::Dijkstra => sim_state.selected_algorithm = "Dijkstra".to_string(),
-                    AlgoAction::GBFS => sim_state.selected_algorithm = "GBFS".to_string(),
-                }
-                next_state.set(AppState::Sim2D);
+                // 1. Set parameter algoritma
+                sim_state.selected_algorithm = match action {
+                    AlgoAction::AStar => "AStar".to_string(),
+                    AlgoAction::Dijkstra => "Dijkstra".to_string(),
+                    AlgoAction::GBFS => "GBFS".to_string(),
+                };
+
+                // 2. Transisi state via NavStack
+                // Menggunakan helper function dari previous response
+                push_state(
+                    AppState::AlgorithmSelection2D, 
+                    AppState::Sim2DLoading, 
+                    &mut next_state, 
+                    &mut nav_stack
+                );
             }
             Interaction::Hovered => *color = BackgroundColor(Color::srgb(0.9, 0.6, 0.3)),
             Interaction::None => *color = BackgroundColor(Color::srgb(0.8, 0.4, 0.2)),
         }
     }
 }
+
 
 fn cleanup_menu<T: Component>(mut commands: Commands, query: Query<Entity, With<T>>) {
     for entity in query.iter() {

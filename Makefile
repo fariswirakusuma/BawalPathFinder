@@ -27,5 +27,5 @@ stop:
 
 clean: stop
 	@echo "=== Menghapus Binary dan Cache ==="
-	rm -rf $(BIN_DIR)
+	rm -rf $(BIN_DIR)/BawalPathFinder
 	cd Interface && cargo clean
