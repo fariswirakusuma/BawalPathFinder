@@ -10,7 +10,6 @@ struct PanelEntity;
 
 impl Plugin for UiPanelPlugin {
     fn build(&self, app: &mut App) {
-        // PERBAIKAN: Ubah Sim2D menjadi Sim2DRun
         app.add_systems(OnEnter(AppState::Sim2DRun), setup_panel)
            .add_systems(
                Update,
