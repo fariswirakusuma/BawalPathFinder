@@ -10,18 +10,20 @@ def create_random_map():
     resolution = 0.05
     
     map_dir = os.path.dirname(os.path.abspath(__file__))
+    
     img = Image.new('L', (width, height), 30)
-    num_obstacles = random.randint(15, 25)
+    num_obstacles = random.randint(8, 15)
+    
     start_px, start_py = 20, 20
     goal_px, goal_py = 180, 180
-    safe_radius = 30
+    safe_radius = 40
     
     for _ in range(num_obstacles):
-        obs_w = random.randint(15, 40)
-        obs_h = random.randint(15, 40)
+        obs_w = random.randint(1, 4) * 10
+        obs_h = random.randint(1, 4) * 10
         
-        start_x = random.randint(0, width - obs_w)
-        start_y = random.randint(0, height - obs_h)
+        start_x = random.randint(0, (width - obs_w) // 10) * 10
+        start_y = random.randint(0, (height - obs_h) // 10) * 10
         
         center_x = start_x + obs_w / 2
         center_y = start_y + obs_h / 2
@@ -47,18 +49,19 @@ def create_random_map():
     origin_x = -(width * resolution) / 2.0
     origin_y = -(height * resolution) / 2.0
     
-
     yaml_content = (
         f"image: {png_filename}\n"
         f"resolution: {resolution}\n"
         f"origin: [{origin_x:.2f}, {origin_y:.2f}, 0.0]\n"
-        f"occupied_thresh: 0.80\n"
-        f"free_thresh: 0.55\n"
+        f"occupied_thresh: 0.45\n"
+        f"free_thresh: 0.25\n"
         f"negate: 1\n"
     )
     
-    with open(yaml_path, "w") as f:
+    with open(yaml_path, "w", newline='\n') as f:
         f.write(yaml_content)
+
+    print(f"[SUCCESS] Berhasil membuat peta acak: {yaml_filename}")
 
 if __name__ == "__main__":
     create_random_map()

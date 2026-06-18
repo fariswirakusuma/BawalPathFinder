@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use bevy::input::mouse::AccumulatedMouseScroll;
 use std::fs;
+use std::path::Path;
 use crate::states::AppState;
 use crate::navigation::{NavStack, push_state};
 use crate::simulation_2d::SimulationState;
@@ -93,7 +94,7 @@ fn setup_main_menu(mut commands: Commands) {
         BackgroundColor(Color::srgb(0.1, 0.1, 0.12)),
         MainMenuEntity,
     )).with_children(|parent| {
-        parent.spawn((Text::new("NAV2 SIMULATOR"), TextFont { font_size: 45.0, ..default() }, TextColor(Color::WHITE)));
+        parent.spawn((Text::new("BawalPathFinder"), TextFont { font_size: 45.0, ..default() }, TextColor(Color::WHITE)));
         
         parent.spawn((
             Button,
@@ -301,10 +302,46 @@ fn update_start_button_visual(config: Res<SetupConfig>, mut query: Query<(&mut B
     }
 }
 
+fn inject_map_to_yaml(map_name: &str) {
+    let yaml_path = "ROS_workspace/src/navigation/config/nav2_params.yaml";
+    if let Ok(content) = fs::read_to_string(yaml_path) {
+        let mut new_lines = Vec::new();
+        let mut in_map_server = false;
+        let mut in_ros_params = false;
+
+        for line in content.lines() {
+            let trimmed = line.trim();
+            if trimmed.starts_with("map_server:") {
+                in_map_server = true;
+                new_lines.push(line.to_string());
+            } else if in_map_server && trimmed.starts_with("ros__parameters:") {
+                in_ros_params = true;
+                new_lines.push(line.to_string());
+            } else if in_map_server && in_ros_params && trimmed.starts_with("yaml_filename:") {
+                let indent = line.chars().take_while(|c| c.is_whitespace()).collect::<String>();
+                let docker_path = format!("/ros2_ws/src/navigation/maps/{}", map_name);
+                new_lines.push(format!("{}yaml_filename: \"{}\"", indent, docker_path));
+                in_map_server = false;
+                in_ros_params = false;
+            } else {
+                if in_map_server && !trimmed.is_empty() && !line.starts_with(' ') && !trimmed.starts_with("map_server:") {
+                    in_map_server = false;
+                    in_ros_params = false;
+                }
+                new_lines.push(line.to_string());
+            }
+        }
+        let _ = fs::write(yaml_path, new_lines.join("\n"));
+    }
+}
+
 fn handle_start_button(config: Res<SetupConfig>, mut next_state: ResMut<NextState<AppState>>, mut sim_state: ResMut<SimulationState>, mut nav_stack: ResMut<NavStack>, interaction: Query<&Interaction, (Changed<Interaction>, With<StartButton>)>) {
     for interaction in &interaction {
         if *interaction == Interaction::Pressed {
             if config.algorithm.is_empty() || config.map_name.is_empty() || config.urdf_model.is_empty() { return; }
+            
+            inject_map_to_yaml(&config.map_name);
+            
             sim_state.selected_algorithm = config.algorithm.clone();
             push_state(AppState::AlgorithmSelection2D, AppState::Sim2DLoading, &mut next_state, &mut nav_stack);
         }
