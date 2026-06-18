@@ -10,3 +10,6 @@ target
 .venv
 venv
 __pycache__
+
+#build
+bin/BawalPathFinder

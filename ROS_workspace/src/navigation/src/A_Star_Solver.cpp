@@ -1,21 +1,36 @@
-#include <Dijkstra_Solver.hpp>
+#include <A_Star_Solver.hpp>
 #include <limits>
 #include <algorithm>
+#include <cmath>
+#include <vector>
+#include <iostream>
 
-Dijkstra_Solver::Dijkstra_Solver(nav2_costmap_2d::Costmap2D* costmap) : PathFinder(costmap) {}
+A_Star_Solver::A_Star_Solver(nav2_costmap_2d::Costmap2D* costmap) : PathFinder(costmap) {}
 
-std::vector<unsigned int> Dijkstra_Solver::createPath(unsigned int start_idx, unsigned int goal_idx) {
-    unsigned int map_size = nx_ * ny_;
+float A_Star_Solver::calculate_h(unsigned int current_idx, unsigned int goal_idx) {
+    unsigned int cx, cy, gx, gy;
+    costmap_->indexToCells(current_idx, cx, cy);
+    costmap_->indexToCells(goal_idx, gx, gy);
     
+    float dx = static_cast<float>(cx) - static_cast<float>(gx);
+    float dy = static_cast<float>(cy) - static_cast<float>(gy);
+    return std::sqrt(dx * dx + dy * dy);
+}
+
+std::vector<unsigned int> A_Star_Solver::createPath(unsigned int start_idx, unsigned int goal_idx) {
+    unsigned int map_size = nx_ * ny_;
     std::vector<float> g_costs(map_size, std::numeric_limits<float>::infinity());
     std::vector<int> parents(map_size, -1);
     std::vector<bool> closed_set(map_size, false);
     std::priority_queue<GridNode, std::vector<GridNode>, std::greater<GridNode>> open_set;
 
+    float start_h = calculate_h(start_idx, goal_idx);
     g_costs[start_idx] = 0.0f;
-    open_set.push({start_idx, 0.0f}); 
+    open_set.push({start_idx, calculate_h(start_idx, goal_idx)});
 
     bool found = false;
+
+    calculation_history_.emplace_back(start_idx, start_h, 0.0f, start_h);
 
     while (!open_set.empty()) {
         unsigned int current_idx = open_set.top().index;
@@ -43,8 +58,10 @@ std::vector<unsigned int> Dijkstra_Solver::createPath(unsigned int start_idx, un
             if (tentative_g < g_costs[neighbor_idx]) {
                 parents[neighbor_idx] = current_idx;
                 g_costs[neighbor_idx] = tentative_g;
-                
-                open_set.push({neighbor_idx, tentative_g}); // Tanpa heuristik
+                float h_cost = calculate_h(neighbor_idx, goal_idx);
+                float f_cost = tentative_g + h_cost;
+                open_set.push(GridNode(neighbor_idx, f_cost, tentative_g, h_cost));
+                calculation_history_.push_back({neighbor_idx, f_cost, tentative_g, h_cost});
             }
         }
     }

@@ -21,7 +21,6 @@ find_package(pluginlib REQUIRED)
 find_package(nlohmann_json REQUIRED)
 find_package(tf2_ros REQUIRED)
 
-# Nama target diubah menjadi selectable_planner
 add_library(selectable_planner SHARED
   src/SelectablePlanner.cpp
   src/PathFinder.cpp
@@ -53,12 +52,15 @@ ament_target_dependencies(backend_test_node
   rclcpp
   rclcpp_action
   nav2_msgs
-  nlohmann_json
   nav_msgs
   sensor_msgs
   std_srvs
   tf2_ros
   geometry_msgs
+)
+
+target_link_libraries(backend_test_node
+  nlohmann_json::nlohmann_json
 )
 
 install(DIRECTORY
@@ -68,12 +70,10 @@ install(DIRECTORY
   DESTINATION share/${PROJECT_NAME}
 )
 
-# Memastikan XML diinstal
 install(FILES plugin_description.xml
   DESTINATION share/${PROJECT_NAME}
 )
 
-# Instalasi target dengan nama yang benar
 install(TARGETS selectable_planner
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib

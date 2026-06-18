@@ -1,7 +1,7 @@
 APP_NAME = BawalPathFinder
 BIN_DIR = bin
 
-.PHONY: all build_frontend build_backend run clean stop
+.PHONY: all build_frontend build_backend run clean stop map
 
 all: build_frontend build_backend
 
@@ -29,3 +29,12 @@ clean: stop
 	@echo "=== Menghapus Binary dan Cache ==="
 	rm -rf $(BIN_DIR)/BawalPathFinder
 	cd Interface && cargo clean
+
+map:
+	@echo "=== Menyiapkan Peta Simulasi ==="
+	pip install Pillow faker
+	python3 Test/maps/generate_test_map.py
+	@echo "=== Sinkronisasi Peta ke ROS Workspace ==="
+	@mkdir -p ROS_workspace/src/navigation/maps
+	@cp Test/maps/*.yaml ROS_workspace/src/navigation/maps/ 2>/dev/null || true
+	@cp Test/maps/*.png ROS_workspace/src/navigation/maps/ 2>/dev/null || true

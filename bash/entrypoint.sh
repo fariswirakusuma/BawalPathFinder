@@ -1,25 +1,17 @@
 #!/bin/bash
 set -e
 
-# Source ROS 2 base environment
 source /opt/ros/humble/setup.bash
 
-# Clean & Build workspace 
 echo "=== Building ROS 2 Workspace ==="
+cd /workspace
 rm -rf build/ install/ log/
 colcon build
 
-# Source local workspace
 source install/setup.bash
 
-PARAMS_FILE="/workspace/navigation/config/nav2_params.yaml"
-
 echo "=== Launching Nav2 & TF ==="
-ros2 launch nav2_bringup navigation_launch.py params_file:="$PARAMS_FILE" &
-
-ros2 run tf2_ros static_transform_publisher 0 0 0 0 0 0 map odom &
-ros2 run tf2_ros static_transform_publisher 0 0 0 0 0 0 odom base_footprint &
-ros2 run tf2_ros static_transform_publisher 0 0 0 0 0 0 base_footprint base_link &
+ros2 launch navigation navigation.launch.py &
 
 sleep 5
 
