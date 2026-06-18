@@ -185,7 +185,6 @@ fn inject_map_to_yaml(map_name: &str) {
 fn setup_rosbridge(mut commands: Commands, config: Res<SetupConfig>) {
     let map_name = config.map_name.clone();
     
-    // Eksekusi injeksi file YAML lokal
     inject_map_to_yaml(&map_name);
 
     let (tx_out, rx_out) = mpsc::channel::<String>(); 
@@ -194,9 +193,20 @@ fn setup_rosbridge(mut commands: Commands, config: Res<SetupConfig>) {
     thread::spawn(move || {
         let url = Url::parse(ROSBRIDGE_URL).expect("URL tidak valid");
         let mut socket;
+        println!("[DEBUG] Attempting to connect to {}", ROSBRIDGE_URL);
         loop {
-            match connect(url.clone()) { Ok((s, _)) => { socket = s; break; } Err(_) => { thread::sleep(std::time::Duration::from_secs(2)); } }
+        match connect(url.clone()) {
+            Ok((s, _)) => {
+                socket = s;
+                println!("[DEBUG] Connected to ROSBridge!");
+                break;
+            }
+            Err(e) => {
+                println!("[DEBUG] Connection failed: {}. Retrying...", e);
+                thread::sleep(std::time::Duration::from_secs(2));
+            }
         }
+    }
         match socket.get_mut() { tungstenite::stream::MaybeTlsStream::Plain(s) => s.set_nonblocking(true).unwrap(), _ => (), }
 
         let subscribe_plan = serde_json::json!({ "op": "subscribe", "topic": "/plan", "type": "nav_msgs/msg/Path" });
@@ -205,7 +215,6 @@ fn setup_rosbridge(mut commands: Commands, config: Res<SetupConfig>) {
         let subscribe_log = serde_json::json!({ "op": "subscribe", "topic": "/planner_log", "type": "std_msgs/msg/String" });
         let _ = socket.send(Message::Text(subscribe_log.to_string()));
 
-        // HOT RELOAD: Tembak service load_map ke Nav2 agar langsung ganti map tanpa restart Docker
         if !map_name.is_empty() {
             let docker_map_path = format!("/ros2_ws/src/navigation/maps/{}", map_name);
             let load_map_msg = serde_json::json!({
@@ -214,8 +223,6 @@ fn setup_rosbridge(mut commands: Commands, config: Res<SetupConfig>) {
                 "args": { "map_url": docker_map_path }
             });
             let _ = socket.send(Message::Text(load_map_msg.to_string()));
-            
-            // Bersihkan costmap sebagai tindakan preventif
             let clear_costmap_msg = serde_json::json!({
                 "op": "call_service",
                 "service": "/global_costmap/clear_entirely_global_costmap",
@@ -225,8 +232,18 @@ fn setup_rosbridge(mut commands: Commands, config: Res<SetupConfig>) {
         }
 
         loop {
-            if let Ok(msg) = rx_out.try_recv() { let _ = socket.send(Message::Text(msg)); }
-            match socket.read() { Ok(Message::Text(text)) => { let _ = tx_in.send(text); } _ => {} }
+            if let Ok(msg) = rx_out.try_recv() {
+                println!("[DEBUG] Sending to ROS: {}", msg);
+                if let Err(e) = socket.send(Message::Text(msg)) {
+                    println!("[ERROR] Send failed: {}", e);
+                }
+            }
+            
+            match socket.read() { 
+                Ok(Message::Text(text)) => { let _ = tx_in.send(text); } 
+                _ => {} 
+            }
+            
             thread::sleep(std::time::Duration::from_secs_f32(0.01));
         }
     });
@@ -267,12 +284,12 @@ fn receive_path_data(mut state: ResMut<SimulationState>, mut planner_log: ResMut
                         if let Some(json_str) = parsed["msg"]["data"].as_str() {
                             if let Ok(log_data) = serde_json::from_str::<StepLog>(json_str) {
                                 planner_log.history.push(log_data);
-                                if planner_log.history.len() > 100 { planner_log.history.remove(0); } // Tingkatkan limit history log untuk tabel
+                                if planner_log.history.len() > 100 { planner_log.history.remove(0); } 
                             } else {
                                 planner_log.system_logs.push(json_str.to_string());
                                 if planner_log.system_logs.len() > 15 { planner_log.system_logs.remove(0); }
                                 
-                                if json_str.contains("ABORT") || json_str.contains("failed") {
+                                if json_str.contains("ABORT") || json_str.contains("failed") || json_str.contains("Gagal") || json_str.contains("ERROR") {
                                     state.is_calculating = false;
                                 }
                             }
@@ -349,7 +366,7 @@ fn handle_click(
                 map_size: MapSize { width: 20.0, height: 20.0, resolution: 0.05 },
                 start: Point2D { x: start.x as f64, y: start.y as f64 },
                 goal: Point2D { x: goal.x as f64, y: goal.y as f64 },
-                algorithm: state.selected_algorithm.clone(),
+                algorithm: if state.selected_algorithm == "UCS" { "Dijkstra".to_string() } else { state.selected_algorithm.clone() },
                 obstacles: state.obstacles.iter().map(|p| Point2D { x: p.x as f64, y: p.y as f64 }).collect(),
             };
 

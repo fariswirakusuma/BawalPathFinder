@@ -21,23 +21,12 @@ def generate_launch_description():
         'map',
         default_value=os.path.join(custom_pkg_dir, 'maps', 'map.yaml'))
 
-    # TF Bridge
-    fake_map_bridge = Node(
-        package='tf2_ros', executable='static_transform_publisher',
-        arguments=['0', '0', '0', '0', '0', '0', 'map', 'odom'])
-
-    fake_odom_publisher = Node(
-        package='tf2_ros', executable='static_transform_publisher',
-        arguments=['0', '0', '0', '0', '0', '0', 'odom', 'base_footprint'])
-
-    fake_base_link_bridge = Node(
-        package='tf2_ros', executable='static_transform_publisher',
-        arguments=['0', '0', '0', '0', '0', '0', 'base_footprint', 'base_link'])
+    fake_map_bridge = Node(package='tf2_ros', executable='static_transform_publisher', arguments=['0','0','0','0','0','0','map','odom'])
+    fake_odom_publisher = Node(package='tf2_ros', executable='static_transform_publisher', arguments=['0','0','0','0','0','0','odom','base_footprint'])
+    fake_base_link_bridge = Node(package='tf2_ros', executable='static_transform_publisher', arguments=['0','0','0','0','0','0','base_footprint','base_link'])
 
     nav2_launch_cmd = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(
-            os.path.join(nav2_bringup_dir, 'launch', 'bringup_launch.py')
-        ),
+        PythonLaunchDescriptionSource(os.path.join(nav2_bringup_dir, 'launch', 'bringup_launch.py')),
         launch_arguments={
             'use_sim_time': 'false',
             'params_file': params_file,
