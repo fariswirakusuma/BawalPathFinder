@@ -1,6 +1,6 @@
 # BawalPathFinder 🐟
 
-![Version](https://img.shields.io/badge/Release-v0.4.1-blue)
+![Version](https://img.shields.io/badge/Release-v0.1.0-blue)
 ![Build](https://img.shields.io/badge/Build-Makefile_Ready-success)
 ![Language](https://img.shields.io/badge/Language-C++17-orange)
 
