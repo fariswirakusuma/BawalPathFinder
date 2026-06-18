@@ -1,6 +1,0 @@
-image: map_myself_263.png
-resolution: 0.05
-origin: [-5.00, -5.00, 0.0]
-occupied_thresh: 0.45
-free_thresh: 0.25
-negate: 1

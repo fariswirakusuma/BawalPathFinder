@@ -7,6 +7,8 @@
 #include "std_msgs/msg/string.hpp"
 #include "tf2_ros/transform_broadcaster.h"
 #include "geometry_msgs/msg/transform_stamped.hpp"
+#include "sensor_msgs/msg/point_cloud2.hpp"
+#include "sensor_msgs/point_cloud2_iterator.hpp"
 #include <nlohmann/json.hpp> 
 #include <cmath>
 #include <vector>
@@ -22,6 +24,8 @@ public:
         this->load_map_client_ = this->create_client<nav2_msgs::srv::LoadMap>("/map_server/load_map");
 
         this->plan_pub_ = this->create_publisher<nav_msgs::msg::Path>("/plan", 10);
+        this->pc_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("/frontend/pointcloud", 10);
+        this->ui_log_pub_ = this->create_publisher<std_msgs::msg::String>("/planner_log", 10);
         
         this->obs_sub_ = this->create_subscription<std_msgs::msg::String>(
             "/frontend/obstacles", 10,
@@ -51,15 +55,18 @@ public:
     void send_goal(double goal_x, double goal_y, const std::string& planner_id) {
         if (is_in_obstacle(current_x_, current_y_)) {
             RCLCPP_ERROR(this->get_logger(), "ABORT: Titik START berada di dalam rintangan atau di luar batas!");
+            publish_ui_error("[ERROR] ABORT: Titik START berada di dalam rintangan!");
             return;
         }
         if (is_in_obstacle(goal_x, goal_y)) {
             RCLCPP_ERROR(this->get_logger(), "ABORT: Titik GOAL berada di dalam rintangan atau di luar batas!");
+            publish_ui_error("[ERROR] ABORT: Titik GOAL berada di dalam rintangan!");
             return;
         }
 
         if (!this->client_->wait_for_action_server(std::chrono::seconds(2))) {
             RCLCPP_ERROR(this->get_logger(), "Planner Server Nav2 tidak merespons!");
+            publish_ui_error("[ERROR] ABORT: Planner Server Nav2 tidak merespons!");
             return;
         }
 
@@ -125,6 +132,12 @@ private:
         t.transform.rotation.w = 1.0;
         tf_broadcaster_->sendTransform(t);
     }
+    
+    void publish_ui_error(const std::string& msg) {
+        std_msgs::msg::String log_msg;
+        log_msg.data = msg;
+        this->ui_log_pub_->publish(log_msg);
+    }
 
     void initialpose_callback(const std_msgs::msg::String::SharedPtr msg) {
         try {
@@ -141,6 +154,33 @@ private:
             if (payload.contains("start")) {
                 current_x_ = payload["start"]["x"];
                 current_y_ = payload["start"]["y"];
+            }
+            
+            if (payload.contains("obstacles") && payload["obstacles"].is_array()) {
+                auto pc_msg = std::make_unique<sensor_msgs::msg::PointCloud2>();
+                pc_msg->header.frame_id = "map";
+                pc_msg->header.stamp = this->now();
+                pc_msg->height = 1;
+                pc_msg->width = payload["obstacles"].size();
+                pc_msg->is_dense = true;
+                pc_msg->is_bigendian = false;
+                
+                sensor_msgs::PointCloud2Modifier modifier(*pc_msg);
+                modifier.setPointCloud2FieldsByString(1, "xyz");
+                modifier.resize(pc_msg->width);
+                
+                sensor_msgs::PointCloud2Iterator<float> iter_x(*pc_msg, "x");
+                sensor_msgs::PointCloud2Iterator<float> iter_y(*pc_msg, "y");
+                sensor_msgs::PointCloud2Iterator<float> iter_z(*pc_msg, "z");
+                
+                for (const auto& obs : payload["obstacles"]) {
+                    *iter_x = obs["x"].get<float>();
+                    *iter_y = obs["y"].get<float>();
+                    *iter_z = 0.0f;
+                    ++iter_x; ++iter_y; ++iter_z;
+                }
+                
+                this->pc_pub_->publish(std::move(pc_msg));
             }
 
             std::string algo = payload.value("algorithm", "AStar");
@@ -167,6 +207,7 @@ private:
     void goal_response_callback(const rclcpp_action::ClientGoalHandle<nav2_msgs::action::ComputePathToPose>::SharedPtr & gh) {
         if (!gh) {
             RCLCPP_ERROR(this->get_logger(), "Goal DITOLAK oleh Nav2 Server!");
+            publish_ui_error("[ERROR] ABORT: Goal DITOLAK oleh Nav2 Server!");
             return;
         }
     }
@@ -174,6 +215,7 @@ private:
     void result_callback(const rclcpp_action::ClientGoalHandle<nav2_msgs::action::ComputePathToPose>::WrappedResult & res) {
         if (res.code != rclcpp_action::ResultCode::SUCCEEDED) {
             RCLCPP_ERROR(this->get_logger(), "Kalkulasi GAGAL! Nav2 tidak menemukan jalan.");
+            publish_ui_error("[ERROR] ABORT: Kalkulasi GAGAL! Nav2 tidak menemukan jalan.");
             return;
         }
         nav_msgs::msg::Path path_msg = res.result->path;
@@ -191,6 +233,8 @@ private:
     rclcpp::Subscription<std_msgs::msg::String>::SharedPtr setup_sub_;
     rclcpp::Subscription<nav_msgs::msg::OccupancyGrid>::SharedPtr map_sub_;
     rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr plan_pub_; 
+    rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pc_pub_;
+    rclcpp::Publisher<std_msgs::msg::String>::SharedPtr ui_log_pub_;
     std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
     rclcpp::TimerBase::SharedPtr timer_;
 };
