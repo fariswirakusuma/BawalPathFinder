@@ -1,24 +1,31 @@
 APP_NAME = BawalPathFinder
 BIN_DIR = bin
 
-.PHONY: all build_frontend build_backend run clean stop map map_clean
+.PHONY: all build_frontend build_backend run clean stop map map_clean rebuild_all
 
+# Pastikan semua komponen dibangun sebelum menjalankan
 all: build_frontend build_backend
+
+# Tambahkan --no-cache supaya C++ lu benar-benar dikompilasi ulang
+build_backend:
+	@echo "=== Membangun Image Docker ROS 2 Backend (Tanpa Cache) ==="
+	docker build --no-cache -t nav2_backend:latest -f Dockerfile .
 
 build_frontend:
 	@echo "=== Mengompilasi Frontend Rust (Mode Rilis) ==="
 	cd Interface && cargo build --release
 	@mkdir -p $(BIN_DIR)
 	@cp Interface/target/release/robot_simulation_interface $(BIN_DIR)/$(APP_NAME)
-	@echo "=== Eksekusi berhasil dibuat pada $(BIN_DIR)/$(APP_NAME) ==="
+	@echo "=== Eksekusi frontend siap di $(BIN_DIR)/$(APP_NAME) ==="
 
-build_backend:
-	@echo "=== Membangun Image Docker ROS 2 Backend ==="
-	docker build -t nav2_backend:latest -f Dockerfile .
-
-run: build_frontend
+# Jalankan semua build dulu baru run
+run: all
 	@echo "=== Meluncurkan Sistem BawalPathFinder ==="
 	@bash bash/run_all.sh
+
+# Target untuk reset total jika ada error "planner not found" lagi
+rebuild_all: stop clean build_backend build_frontend
+	@echo "=== Sistem telah di-rebuild total ==="
 
 stop:
 	@echo "=== Menghentikan dan Menghapus Kontainer ==="
@@ -27,7 +34,7 @@ stop:
 
 clean: stop map_clean
 	@echo "=== Menghapus Binary dan Cache ==="
-	rm -rf $(BIN_DIR)/BawalPathFinder
+	rm -rf $(BIN_DIR)/$(APP_NAME)
 	cd Interface && cargo clean
 
 map:

@@ -8,6 +8,11 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /workspace
+
+COPY . /workspace
+
+RUN . /opt/ros/humble/setup.sh && colcon build
+
 COPY bash/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
