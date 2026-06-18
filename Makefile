@@ -1,7 +1,7 @@
 APP_NAME = BawalPathFinder
 BIN_DIR = bin
 
-.PHONY: all build_frontend build_backend run clean stop map
+.PHONY: all build_frontend build_backend run clean stop map map_clean
 
 all: build_frontend build_backend
 
@@ -25,7 +25,7 @@ stop:
 	docker rm -f nav2_sim_backend 2>/dev/null || true
 	pkill -x $(APP_NAME) || true
 
-clean: stop
+clean: stop map_clean
 	@echo "=== Menghapus Binary dan Cache ==="
 	rm -rf $(BIN_DIR)/BawalPathFinder
 	cd Interface && cargo clean
@@ -38,3 +38,8 @@ map:
 	@mkdir -p ROS_workspace/src/navigation/maps
 	@cp Test/maps/*.yaml ROS_workspace/src/navigation/maps/ 2>/dev/null || true
 	@cp Test/maps/*.png ROS_workspace/src/navigation/maps/ 2>/dev/null || true
+
+map_clean:
+	@echo "=== Menghapus Aset Peta Lama ==="
+	rm -f Test/maps/map_*.yaml Test/maps/map_*.png
+	rm -f ROS_workspace/src/navigation/maps/map_*.yaml ROS_workspace/src/navigation/maps/map_*.png
