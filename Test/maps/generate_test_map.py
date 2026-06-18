@@ -10,8 +10,7 @@ def create_random_map():
     resolution = 0.05
     
     map_dir = os.path.dirname(os.path.abspath(__file__))
-    
-    img = Image.new('L', (width, height), 255)
+    img = Image.new('L', (width, height), 30)
     num_obstacles = random.randint(15, 25)
     start_px, start_py = 20, 20
     goal_px, goal_py = 180, 180
@@ -35,7 +34,7 @@ def create_random_map():
             
         for y in range(start_y, start_y + obs_h):
             for x in range(start_x, start_x + obs_w):
-                img.putpixel((x, y), 0)
+                img.putpixel((x, y), 130)
     
     base_name = f"map_{fake.word()}_{random.randint(100,999)}"
     png_filename = f"{base_name}.png"
@@ -48,7 +47,16 @@ def create_random_map():
     origin_x = -(width * resolution) / 2.0
     origin_y = -(height * resolution) / 2.0
     
-    yaml_content = f"image: {png_filename}\nresolution: {resolution}\norigin: [{origin_x:.2f}, {origin_y:.2f}, 0.0]\noccupied_thresh: 0.65\nfree_thresh: 0.25\nnegate: 0\n"
+
+    yaml_content = (
+        f"image: {png_filename}\n"
+        f"resolution: {resolution}\n"
+        f"origin: [{origin_x:.2f}, {origin_y:.2f}, 0.0]\n"
+        f"occupied_thresh: 0.80\n"
+        f"free_thresh: 0.55\n"
+        f"negate: 1\n"
+    )
+    
     with open(yaml_path, "w") as f:
         f.write(yaml_content)
 
