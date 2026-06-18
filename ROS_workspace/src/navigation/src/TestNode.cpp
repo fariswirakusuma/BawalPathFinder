@@ -44,14 +44,22 @@ public:
         this->tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
         this->timer_ = this->create_wall_timer(
             std::chrono::milliseconds(50), std::bind(&TestNode::broadcast_tf, this));
+            
+        RCLCPP_INFO(this->get_logger(), "Backend Test Node Online. Menunggu trigger dari UI...");
     }
 
     void send_goal(double goal_x, double goal_y, const std::string& planner_id) {
-        if (is_in_obstacle(current_x_, current_y_) || is_in_obstacle(goal_x, goal_y)) {
+        if (is_in_obstacle(current_x_, current_y_)) {
+            RCLCPP_ERROR(this->get_logger(), "ABORT: Titik START berada di dalam rintangan atau di luar batas!");
+            return;
+        }
+        if (is_in_obstacle(goal_x, goal_y)) {
+            RCLCPP_ERROR(this->get_logger(), "ABORT: Titik GOAL berada di dalam rintangan atau di luar batas!");
             return;
         }
 
         if (!this->client_->wait_for_action_server(std::chrono::seconds(2))) {
+            RCLCPP_ERROR(this->get_logger(), "Planner Server Nav2 tidak merespons!");
             return;
         }
 
@@ -76,6 +84,7 @@ public:
         send_goal_options.goal_response_callback = std::bind(&TestNode::goal_response_callback, this, std::placeholders::_1);
         send_goal_options.result_callback = std::bind(&TestNode::result_callback, this, std::placeholders::_1);
         
+        RCLCPP_INFO(this->get_logger(), "Mengirim Request Kalkulasi ke Nav2...");
         this->client_->async_send_goal(goal_msg, send_goal_options);
     }
 
@@ -129,15 +138,17 @@ private:
         try {
             json payload = json::parse(msg->data);
         
-            if (payload.contains("start_pos")) {
-                current_x_ = payload["start_pos"]["x"];
-                current_y_ = payload["start_pos"]["y"];
+            if (payload.contains("start")) {
+                current_x_ = payload["start"]["x"];
+                current_y_ = payload["start"]["y"];
             }
 
-            std::string algo = payload["algorithm"];
+            std::string algo = payload.value("algorithm", "AStar");
             this->send_goal(payload["goal"]["x"], payload["goal"]["y"], algo);
 
-        } catch (...) {}
+        } catch (const std::exception& e) {
+            RCLCPP_ERROR(this->get_logger(), "Error JSON Parsing: %s", e.what());
+        }
     }
 
     void setup_simulation_callback(const std_msgs::msg::String::SharedPtr msg) {
@@ -145,23 +156,24 @@ private:
             json payload = json::parse(msg->data);
             std::string selected_map = payload["map"]; 
             
-            if (!this->load_map_client_->wait_for_service(std::chrono::seconds(2))) {
-                return;
-            }
+            if (!this->load_map_client_->wait_for_service(std::chrono::seconds(2))) return;
 
             auto request = std::make_shared<nav2_msgs::srv::LoadMap::Request>();
             request->map_url = "/workspace/install/navigation/share/navigation/maps/" + selected_map;
-
             this->load_map_client_->async_send_request(request);
         } catch (...) {}
     }
 
     void goal_response_callback(const rclcpp_action::ClientGoalHandle<nav2_msgs::action::ComputePathToPose>::SharedPtr & gh) {
-        if (!gh) return;
+        if (!gh) {
+            RCLCPP_ERROR(this->get_logger(), "Goal DITOLAK oleh Nav2 Server!");
+            return;
+        }
     }
 
     void result_callback(const rclcpp_action::ClientGoalHandle<nav2_msgs::action::ComputePathToPose>::WrappedResult & res) {
         if (res.code != rclcpp_action::ResultCode::SUCCEEDED) {
+            RCLCPP_ERROR(this->get_logger(), "Kalkulasi GAGAL! Nav2 tidak menemukan jalan.");
             return;
         }
         nav_msgs::msg::Path path_msg = res.result->path;
@@ -169,6 +181,7 @@ private:
         path_msg.header.stamp = this->now();
         
         this->plan_pub_->publish(path_msg);
+        RCLCPP_INFO(this->get_logger(), "Rute SUKSES dikalkulasi! Jumlah Node: %zu", path_msg.poses.size());
     }
 
     rclcpp_action::Client<nav2_msgs::action::ComputePathToPose>::SharedPtr client_;
