@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy::input::mouse::{MouseScrollUnit, MouseWheel};
 use crate::simulation_2d::{SimulationState, PlannerLog, RosBridge};
 use crate::states::AppState;
 use crate::setup::SetupConfig;
@@ -51,7 +52,7 @@ fn setup_panel(mut commands: Commands) {
 
         root.spawn((
             Node {
-                width: Val::Px(440.0), 
+                width: Val::Px(460.0),
                 height: Val::Percent(100.0),
                 flex_direction: FlexDirection::Column,
                 padding: UiRect::all(Val::Px(20.0)),
@@ -90,16 +91,16 @@ fn setup_panel(mut commands: Commands) {
                     flex_grow: 1.0, 
                     width: Val::Percent(100.0),
                     overflow: Overflow::clip_y(), 
-                    flex_direction: FlexDirection::Column,
+                    position_type: PositionType::Relative, 
                     ..default()
                 },
             )).with_children(|viewport| {
                 viewport.spawn((
                     Node {
                         flex_direction: FlexDirection::Column,
-                        position_type: PositionType::Relative,
+                        position_type: PositionType::Absolute, 
                         width: Val::Percent(100.0),
-                        max_height: Val::Percent(100.0), // FIX: Mengunci tinggi agar overflow:clip bekerja
+                        left: Val::Px(0.0),
                         top: Val::Px(0.0),
                         ..default()
                     },
@@ -133,7 +134,7 @@ fn setup_panel(mut commands: Commands) {
                     TextColor(Color::srgb(0.6, 0.6, 0.6)),
                 ));
                 info.spawn((
-                    Text::new("• Mid Click  : Set Start  | Right Click: Set Goal\n• Left Click : Obstacle    | Up/Down Key: Scroll Log"),
+                    Text::new("• Mid Click  : Set Start  | Right Click: Set Goal\n• Left Click : Obstacle    | Scroll/Key: Scroll Log"),
                     TextFont { font_size: 12.0, ..default() },
                     TextColor(Color::srgb(0.85, 0.85, 0.85)),
                 ));
@@ -167,25 +168,34 @@ fn setup_panel(mut commands: Commands) {
 
 fn manual_mouse_scroll(
     keyboard_input: Res<ButtonInput<KeyCode>>,
+    mut mouse_wheel_messages: MessageReader<MouseWheel>, 
     mut query_list: Query<(&mut ScrollingList, &mut Node)>,
 ) {
     let mut dy = 0.0;
+    
+    // 1. Eksekusi Input Keyboard
     if keyboard_input.pressed(KeyCode::ArrowUp) {
-        dy = 30.0; 
+        dy += 25.0; 
     } else if keyboard_input.pressed(KeyCode::ArrowDown) {
-        dy = -30.0; 
+        dy -= 25.0; 
     }
 
-    if dy != 0.0 {
-        for (mut scroll_list, mut node) in &mut query_list {
+    // 2. Eksekusi Input Mouse Wheel dari Messages
+    for message in mouse_wheel_messages.read() {
+        match message.unit {
+            MouseScrollUnit::Line => dy += message.y * 20.0,
+            MouseScrollUnit::Pixel => dy += message.y,
+        }
+    }
+
+    for (mut scroll_list, mut node) in &mut query_list {
+        if dy != 0.0 {
             scroll_list.position += dy;
-            
             if scroll_list.position > 0.0 {
                 scroll_list.position = 0.0;
             }
-            
-            node.top = Val::Px(scroll_list.position);
         }
+        node.top = Val::Px(scroll_list.position);
     }
 }
 

@@ -401,9 +401,16 @@ fn draw_visualization(mut gizmos: Gizmos, state: Res<SimulationState>) {
     }
 }
 
-fn cleanup_sim2d(mut commands: Commands, query: Query<Entity, With<Sim2DEntity>>, mut logs: ResMut<PlannerLog>) {
+fn cleanup_sim2d(mut commands: Commands, query: Query<Entity, With<Sim2DEntity>>, mut logs: ResMut<PlannerLog>,mut state: ResMut<SimulationState>) {
     for entity in query.iter() { commands.entity(entity).despawn(); }
     commands.remove_resource::<RosBridge>();
     logs.history.clear();
     logs.system_logs.clear();
+
+    state.path.clear();
+    state.obstacles.clear();
+    state.start_pos = None;
+    state.goal_pos = None;
+    state.is_calculating = false;
+    state.calc_elapsed = 0.0;
 }
