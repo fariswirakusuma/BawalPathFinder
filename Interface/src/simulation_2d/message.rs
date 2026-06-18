@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+
+
 pub struct MapSize {
     pub width: f64,
     pub height: f64,

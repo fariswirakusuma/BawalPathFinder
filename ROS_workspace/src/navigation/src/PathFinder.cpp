@@ -1,7 +1,8 @@
 #include <PathFinder.hpp>
 #include "nav2_costmap_2d/cost_values.hpp"
 
-PathFinder::PathFinder(nav2_costmap_2d::Costmap2D* costmap) : costmap_(costmap) {
+PathFinder::PathFinder(nav2_costmap_2d::Costmap2D* costmap, rclcpp::Publisher<std_msgs::msg::String>::SharedPtr pub) 
+    : costmap_(costmap), log_pub_(pub) { 
     nx_ = costmap_->getSizeInCellsX();
     ny_ = costmap_->getSizeInCellsY();
 }

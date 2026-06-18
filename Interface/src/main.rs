@@ -16,11 +16,9 @@ use setup::SetupConfig;
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(AssetPlugin {
-            file_path: "../".into(),
-            ..default()
-        }))
-        .add_plugins(HtmlTailwindPlugin { hot_reload: true }) 
+        .add_plugins(DefaultPlugins.set(AssetPlugin {file_path: "../".into(),..default()}).set(ImagePlugin::default_nearest())
+        )
+        .add_plugins(HtmlTailwindPlugin { hot_reload: true })
         
         .init_state::<AppState>()
         .insert_resource(NavStack::default())

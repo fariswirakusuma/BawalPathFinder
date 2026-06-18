@@ -8,7 +8,7 @@ private:
     std::vector<float> f_score_;
 
 public:
-    A_Star_Solver(nav2_costmap_2d::Costmap2D* costmap);
+    A_Star_Solver(nav2_costmap_2d::Costmap2D* costmap,rclcpp::Publisher<std_msgs::msg::String>::SharedPtr pub);
     std::vector<unsigned int> createPath(unsigned int start_idx, unsigned int goal_idx) override;
     float get_g(unsigned int idx) const { return g_score_[idx]; }
     float get_f(unsigned int idx) const { return f_score_[idx]; }

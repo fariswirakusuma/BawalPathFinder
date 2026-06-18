@@ -3,6 +3,8 @@
 #include <vector>
 #include <queue>
 #include "nav2_costmap_2d/costmap_2d.hpp"
+#include "rclcpp/rclcpp.hpp"
+#include "std_msgs/msg/string.hpp"
 
 struct StepLog {
     unsigned int index;
@@ -39,18 +41,22 @@ class PathFinder {
 protected:
     nav2_costmap_2d::Costmap2D* costmap_;
     unsigned int nx_, ny_;
+    rclcpp::Publisher<std_msgs::msg::String>::SharedPtr log_pub_;
     
     std::vector<StepLog> calculation_history_;
 
     std::vector<unsigned int> get_neighbors(unsigned int current_idx);
 
 public:
-    PathFinder(nav2_costmap_2d::Costmap2D* costmap);
+    PathFinder(nav2_costmap_2d::Costmap2D* costmap, rclcpp::Publisher<std_msgs::msg::String>::SharedPtr pub);
     virtual ~PathFinder() = default;
     
     virtual std::vector<unsigned int> createPath(unsigned int start_idx, unsigned int goal_idx) = 0;
     
     const std::vector<StepLog>& get_calculation_history() const {
         return calculation_history_;
+    }
+    void setLogPublisher(rclcpp::Publisher<std_msgs::msg::String>::SharedPtr pub) {
+        log_pub_ = pub;
     }
 };

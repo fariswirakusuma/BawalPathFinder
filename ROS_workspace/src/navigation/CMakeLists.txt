@@ -44,6 +44,7 @@ ament_target_dependencies(selectable_planner
   nav_msgs
   rclcpp_action
   pluginlib
+  std_msgs
 )
 
 add_executable(backend_test_node src/TestNode.cpp)

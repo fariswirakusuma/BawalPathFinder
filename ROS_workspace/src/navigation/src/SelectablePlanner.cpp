@@ -4,6 +4,7 @@
 #include "A_Star_Solver.hpp"
 #include "Dijkstra_Solver.hpp"
 #include "GBFS_Solver.hpp"
+#include "std_msgs/msg/string.hpp"
 
 namespace nav2planner
 {
@@ -21,6 +22,8 @@ void SelectablePlanner::configure(
 
   (void)tf;
 
+  log_pub_ = node->create_publisher<std_msgs::msg::String>("/planner_log", 10);
+
   nav2_util::declare_parameter_if_not_declared(
     node, name_ + ".algorithm", rclcpp::ParameterValue("A_STAR"));
   
@@ -29,7 +32,10 @@ void SelectablePlanner::configure(
   RCLCPP_INFO(node->get_logger(), "SelectablePlanner dikonfigurasi. Algoritma aktif: %s", selected_algorithm_.c_str());
 }
 
-void SelectablePlanner::cleanup() {}
+void SelectablePlanner::cleanup() {
+  log_pub_.reset();
+}
+
 void SelectablePlanner::activate() {}
 void SelectablePlanner::deactivate() {}
 
@@ -42,6 +48,7 @@ nav_msgs::msg::Path SelectablePlanner::createPlan(
   final_path.header.frame_id = global_frame_;
 
   unsigned int mx_start, my_start, mx_goal, my_goal;
+
   if (!costmap_->worldToMap(start.pose.position.x, start.pose.position.y, mx_start, my_start) ||
       !costmap_->worldToMap(goal.pose.position.x, goal.pose.position.y, mx_goal, my_goal)) {
       RCLCPP_ERROR(rclcpp::get_logger("SelectablePlanner"), "Koordinat Start atau Goal berada di luar batas Costmap!");
@@ -53,15 +60,15 @@ nav_msgs::msg::Path SelectablePlanner::createPlan(
   std::unique_ptr<PathFinder> solver;
 
   if (selected_algorithm_ == "A_STAR") {
-      solver = std::make_unique<A_Star_Solver>(costmap_);
+      solver = std::make_unique<A_Star_Solver>(costmap_, log_pub_);
   } else if (selected_algorithm_ == "UCS" || selected_algorithm_ == "DP") {
-      solver = std::make_unique<Dijkstra_Solver>(costmap_);
+      solver = std::make_unique<Dijkstra_Solver>(costmap_, log_pub_);
   } else if (selected_algorithm_ == "GBFS") {
-      solver = std::make_unique<GBFS_Solver>(costmap_);
+      solver = std::make_unique<GBFS_Solver>(costmap_, log_pub_);
   } else {
       RCLCPP_WARN(rclcpp::get_logger("SelectablePlanner"), 
                   "Algoritma %s tidak dikenali. Jatuh kembali ke A_STAR.", selected_algorithm_.c_str());
-      solver = std::make_unique<A_Star_Solver>(costmap_);
+      solver = std::make_unique<A_Star_Solver>(costmap_, log_pub_);
   }
 
   std::vector<unsigned int> path_indices = solver->createPath(start_idx, goal_idx);

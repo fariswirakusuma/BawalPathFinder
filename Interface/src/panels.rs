@@ -29,64 +29,108 @@ struct ResetButton;
 fn setup_panel(mut commands: Commands) {
     commands.spawn((
         Node {
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
             position_type: PositionType::Absolute,
-            right: Val::Px(20.0),
-            top: Val::Px(20.0),
-            flex_direction: FlexDirection::Column,
-            padding: UiRect::all(Val::Px(20.0)),
-            border: UiRect::all(Val::Px(2.0)),
-            row_gap: Val::Px(15.0),
-            min_width: Val::Px(320.0),
+            left: Val::Px(0.0),
+            top: Val::Px(0.0),
+            flex_direction: FlexDirection::Row,
             ..default()
         },
-        BackgroundColor(Color::srgba(0.08, 0.09, 0.1, 0.95)),
-        BorderColor::all(Color::srgb(0.3, 0.4, 0.5)),
-        PanelEntity, 
-    ))
-    .with_children(|parent| {
-        parent.spawn((
-            Text::new("NAV2 METRICS"),
-            TextFont { font_size: 18.0, ..default() },
-            TextColor(Color::srgb(0.2, 0.8, 1.0)),
-        ));
+        PanelEntity,
+    )).with_children(|root| {
+        root.spawn(Node { flex_grow: 1.0, ..default() });
 
-        parent.spawn((
+        root.spawn((
             Node {
-                width: Val::Percent(100.0),
-                height: Val::Px(1.0),
+                width: Val::Px(340.0),
+                height: Val::Percent(100.0),
+                flex_direction: FlexDirection::Column,
+                padding: UiRect::all(Val::Px(25.0)),
+                border: UiRect::left(Val::Px(2.0)),
+                row_gap: Val::Px(20.0),
                 ..default()
             },
-            BackgroundColor(Color::srgb(0.3, 0.4, 0.5)),
-        ));
-
-        parent.spawn((
-            Text::new("Awaiting data..."),
-            TextFont { font_size: 14.0, ..default() },
-            TextColor(Color::srgb(0.9, 0.9, 0.9)),
-            StatsText,
-        ));
-
-        parent.spawn((
-            Button,
-            Node {
-                width: Val::Percent(100.0),
-                height: Val::Px(35.0),
-                margin: UiRect::top(Val::Px(10.0)),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                border: UiRect::all(Val::Px(1.0)),
-                ..default()
-            },
-            BackgroundColor(Color::srgb(0.7, 0.2, 0.2)),
-            BorderColor::all(Color::srgb(0.9, 0.4, 0.4)),
-            ResetButton,
+            BackgroundColor(Color::srgba(0.05, 0.06, 0.08, 0.98)), // Warna background dipertajam
+            BorderColor::all(Color::srgb(0.2, 0.3, 0.4)),
         ))
-        .with_children(|button| {
-            button.spawn((
-                Text::new("RESET PATH"),
-                TextFont { font_size: 14.0, ..default() },
-                TextColor(Color::WHITE),
+        .with_children(|sidebar| {
+            // HEADER TITTLE
+            sidebar.spawn((
+                Text::new("NAV2 METRICS"),
+                TextFont { font_size: 22.0, ..default() },
+                TextColor(Color::srgb(0.2, 0.8, 1.0)),
             ));
+
+            sidebar.spawn((
+                Node {
+                    width: Val::Percent(100.0),
+                    height: Val::Px(2.0),
+                    ..default()
+                },
+                BackgroundColor(Color::srgb(0.2, 0.3, 0.4)),
+            ));
+
+            sidebar.spawn((
+                Node {
+                    flex_grow: 1.0, 
+                    ..default()
+                },
+            )).with_children(|stats_container| {
+                stats_container.spawn((
+                    Text::new("Awaiting data..."),
+                    TextFont { font_size: 15.0, ..default() },
+                    TextColor(Color::srgb(0.9, 0.9, 0.9)),
+                    StatsText,
+                ));
+            });
+
+            sidebar.spawn((
+                Node {
+                    width: Val::Percent(100.0),
+                    flex_direction: FlexDirection::Column,
+                    padding: UiRect::all(Val::Px(15.0)),
+                    border: UiRect::all(Val::Px(1.0)),
+                    border_radius: BorderRadius::all(Val::Px(8.0)), // Membuat ujung box membulat
+                    row_gap: Val::Px(8.0),
+                    ..default()
+                },
+                BackgroundColor(Color::srgba(0.1, 0.12, 0.15, 1.0)),
+                BorderColor::all(Color::srgb(0.3, 0.3, 0.3)),
+            )).with_children(|info| {
+                info.spawn((
+                    Text::new("MOUSE CONTROLS"),
+                    TextFont { font_size: 14.0, ..default() },
+                    TextColor(Color::srgb(0.6, 0.6, 0.6)),
+                ));
+                info.spawn((
+                    Text::new("• Mid Click  : Set Start\n• Right Click: Set Goal\n• Left Click : Obstacle"),
+                    TextFont { font_size: 13.0, ..default() },
+                    TextColor(Color::srgb(0.85, 0.85, 0.85)),
+                ));
+            });
+            sidebar.spawn((
+                Button,
+                Node {
+                    width: Val::Percent(100.0),
+                    height: Val::Px(45.0), 
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
+                    border: UiRect::all(Val::Px(1.0)),
+                    border_radius: BorderRadius::all(Val::Px(8.0)),
+                    ..default()
+                },
+                BackgroundColor(Color::srgb(0.7, 0.2, 0.2)),
+                BorderColor::all(Color::srgb(0.9, 0.4, 0.4)),
+                ResetButton,
+            ))
+            .with_children(|btn| {
+                btn.spawn((
+                    Text::new("RESET PATH"),
+                    TextFont { font_size: 16.0, ..default() },
+                    TextColor(Color::WHITE),
+                ));
+            });
         });
     });
 }

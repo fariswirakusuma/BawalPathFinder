@@ -8,6 +8,7 @@
 #include "nav_msgs/msg/path.hpp"
 #include "nav2_util/lifecycle_node.hpp"
 #include "nav2_costmap_2d/costmap_2d_ros.hpp"
+#include "std_msgs/msg/string.hpp"
 
 namespace nav2planner
 {
@@ -32,6 +33,7 @@ public:
     const geometry_msgs::msg::PoseStamped & goal) override;
 
 private:
+  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr log_pub_;
   std::shared_ptr<nav2_costmap_2d::Costmap2DROS> costmap_ros_;
   
   nav2_costmap_2d::Costmap2D * costmap_;

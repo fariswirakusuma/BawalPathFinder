@@ -1,8 +1,9 @@
 #include <Dijkstra_Solver.hpp>
 #include <limits>
 #include <algorithm>
+#include <nlohmann/json.hpp> 
 
-Dijkstra_Solver::Dijkstra_Solver(nav2_costmap_2d::Costmap2D* costmap) : PathFinder(costmap) {}
+Dijkstra_Solver::Dijkstra_Solver(nav2_costmap_2d::Costmap2D* costmap,rclcpp::Publisher<std_msgs::msg::String>::SharedPtr pub) : PathFinder(costmap,pub) {}
 
 std::vector<unsigned int> Dijkstra_Solver::createPath(unsigned int start_idx, unsigned int goal_idx) {
     unsigned int map_size = nx_ * ny_;
@@ -46,8 +47,19 @@ std::vector<unsigned int> Dijkstra_Solver::createPath(unsigned int start_idx, un
                 parents[neighbor_idx] = current_idx;
                 g_costs[neighbor_idx] = tentative_g;
                 
-                float f_cost = tentative_g; // Untuk Dijkstra, f = g
-                open_set.push(GridNode(neighbor_idx, f_cost, tentative_g, 0.0f)); // Tanpa heuristik
+                float f_cost = tentative_g; 
+
+                nlohmann::json j;
+                j["index"] = (unsigned int)neighbor_idx;
+                j["f"] = (float)f_cost;
+                j["g"] = (float)tentative_g;
+                j["h"] = 0.0f;
+                
+                std_msgs::msg::String msg;
+                msg.data = j.dump();
+                if (log_pub_) log_pub_->publish(msg);
+                
+                open_set.push(GridNode(neighbor_idx, f_cost, tentative_g, 0.0f));
                 calculation_history_.push_back({neighbor_idx, f_cost, tentative_g, 0.0f});
             }
         }

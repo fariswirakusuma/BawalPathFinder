@@ -29,8 +29,8 @@ pub struct SimulationState {
     pub obstacles: Vec<Point>,
     pub path: Vec<Point>,
     pub selected_algorithm: String,
-    pub start_pos: Point,
-    pub goal_pos: Point,
+    pub start_pos: Option<Point>, 
+    pub goal_pos: Option<Point>,  
 }
 
 impl Default for SimulationState {
@@ -39,8 +39,8 @@ impl Default for SimulationState {
             obstacles: Vec::new(),
             path: Vec::new(),
             selected_algorithm: "AStar".to_string(),
-            start_pos: Point { x: -4.0, y: -4.0 },
-            goal_pos: Point { x: 4.0, y: 4.0 }, 
+            start_pos:None,
+            goal_pos: None, 
         }
     }
 }
@@ -78,8 +78,13 @@ impl Plugin for Simulation2dPlugin {
             .add_systems(OnEnter(AppState::Sim2DRun), (setup_2d_grid, setup_back_button))
             .add_systems(
                 Update,
-                (handle_click, receive_path_data, draw_visualization, handle_back_button)
-                    .run_if(in_state(AppState::Sim2DRun)),
+                (
+                    handle_click, 
+                    receive_path_data, 
+                    draw_visualization, 
+                    handle_back_button
+                )
+                .run_if(in_state(AppState::Sim2DRun)),
             )
             .add_systems(OnExit(AppState::Sim2DRun), (cleanup_sim2d, cleanup_back_button));
     }
@@ -176,7 +181,7 @@ fn setup_2d_grid(mut commands: Commands, config: Res<SetupConfig>, asset_server:
 
     if !config.map_name.is_empty() {
         let png_name = config.map_name.replace(".yaml", ".png");
-        let image_handle = asset_server.load(format!("Test/maps/{}", png_name));
+        let image_handle: Handle<Image> = asset_server.load(format!("Test/maps/{}", png_name));
 
         commands.spawn((
             Sprite {
@@ -184,7 +189,7 @@ fn setup_2d_grid(mut commands: Commands, config: Res<SetupConfig>, asset_server:
                 custom_size: Some(Vec2::new(10.0 * SCALE, 10.0 * SCALE)),
                 ..default()
             },
-            Transform::from_xyz(0.0, 0.0, -1.0),
+            Transform::from_xyz(-1.5, 0.0, -1.0),
             Sim2DEntity,
         ));
     }
@@ -273,10 +278,14 @@ fn receive_path_data(
                         }
                     },
                     "/planner_log" => {
-                        if let Ok(log_data) = serde_json::from_value::<StepLog>(parsed["msg"].clone()) {
-                            planner_log.history.push(log_data);
-                            if planner_log.history.len() > 8 {
-                                planner_log.history.remove(0);
+                        if let Some(json_str) = parsed["msg"]["data"].as_str() {
+                            if let Ok(log_data) = serde_json::from_str::<StepLog>(json_str) {
+                                planner_log.history.push(log_data);
+                                if planner_log.history.len() > 8 {
+                                    planner_log.history.remove(0);
+                                }
+                            } else {
+                                eprintln!("Gagal parsing isi JSON log: {}", json_str);
                             }
                         }
                     },
@@ -292,6 +301,7 @@ fn handle_click(
     q_windows: Query<&Window, With<PrimaryWindow>>,
     q_camera: Query<(&Camera, &GlobalTransform), With<Sim2DEntity>>,
     mut state: ResMut<SimulationState>,
+    mut planner_log: ResMut<PlannerLog>, // <-- Tambahkan parameter ini
     bridge: Res<RosBridge>,
 ) {
     let mut data_changed = false;
@@ -315,10 +325,10 @@ fn handle_click(
 
     if let Some((snapped_x, snapped_y, sim_x, sim_y)) = click_pos {
         if buttons.just_pressed(MouseButton::Right) {
-            state.goal_pos = Point { x: snapped_x, y: snapped_y };
+            state.goal_pos = Some(Point { x: snapped_x, y: snapped_y });
             data_changed = true;
         } else if buttons.just_pressed(MouseButton::Middle) {
-            state.start_pos = Point { x: snapped_x, y: snapped_y };
+            state.start_pos = Some(Point { x: snapped_x, y: snapped_y });
             data_changed = true;
         } else if buttons.just_pressed(MouseButton::Left) {
             let click_radius = 0.05;
@@ -341,28 +351,36 @@ fn handle_click(
     }
 
     if data_changed {
-        let payload = SimulationPayload {
-            map_size: MapSize { width: 20.0, height: 20.0, resolution: 0.05 },
-            start: Point2D { x: state.start_pos.x as f64, y: state.start_pos.y as f64 },
-            goal: Point2D { x: state.goal_pos.x as f64, y: state.goal_pos.y as f64 },
-            algorithm: state.selected_algorithm.clone(),
-            obstacles: state.obstacles.iter().map(|p| Point2D { x: p.x as f64, y: p.y as f64 }).collect(),
-        };
+        state.path.clear();
+        planner_log.history.clear();
 
-        if let Ok(json_str) = serde_json::to_string(&payload) {
-            let pub_msg = serde_json::json!({
-                "op": "publish",
-                "topic": "/frontend/obstacles",
-                "msg": { "data": json_str } 
-            });
-            let _ = bridge.tx.lock().unwrap().send(pub_msg.to_string());
+        if let (Some(start), Some(goal)) = (&state.start_pos, &state.goal_pos) {
+            let payload = SimulationPayload {
+                map_size: MapSize { width: 20.0, height: 20.0, resolution: 0.05 },
+                start: Point2D { x: start.x as f64, y: start.y as f64 },
+                goal: Point2D { x: goal.x as f64, y: goal.y as f64 },
+                algorithm: state.selected_algorithm.clone(),
+                obstacles: state.obstacles.iter().map(|p| Point2D { x: p.x as f64, y: p.y as f64 }).collect(),
+            };
+
+            if let Ok(json_str) = serde_json::to_string(&payload) {
+                let pub_msg = serde_json::json!({
+                    "op": "publish",
+                    "topic": "/frontend/obstacles",
+                    "msg": { "data": json_str } 
+                });
+                let _ = bridge.tx.lock().unwrap().send(pub_msg.to_string());
+            }
         }
     }
 }
 
 fn draw_visualization(mut gizmos: Gizmos, state: Res<SimulationState>) {
-    for i in -100..=100 {
-        let offset = (i as f32) * GRID_SIZE * SCALE;
+    // Custom grid visual (0.5 meter per kotak), tidak mengganggu GRID_SIZE untuk snapping
+    const VISUAL_GRID_SIZE: f32 = 0.5; 
+    
+    for i in -40..=40 {
+        let offset = (i as f32) * VISUAL_GRID_SIZE * SCALE;
         let color = if i == 0 { Color::srgb(0.4, 0.4, 0.4) } else { Color::srgb(0.15, 0.15, 0.15) };
         gizmos.line_2d(Vec2::new(-2000.0, offset), Vec2::new(2000.0, offset), color);
         gizmos.line_2d(Vec2::new(offset, -2000.0), Vec2::new(offset, 2000.0), color);
@@ -397,17 +415,22 @@ fn draw_visualization(mut gizmos: Gizmos, state: Res<SimulationState>) {
         }
     }
     
-    gizmos.circle_2d(Vec2::new(state.start_pos.x * SCALE, state.start_pos.y * SCALE), 40.0, Color::srgb(1.0, 1.0, 0.0));
+    if let Some(start) = &state.start_pos {
+        gizmos.circle_2d(Vec2::new(start.x * SCALE, start.y * SCALE), 40.0, Color::srgb(1.0, 1.0, 0.0));
+    }
     
-    let goal_vec = Vec2::new(state.goal_pos.x * SCALE, state.goal_pos.y * SCALE);
-    gizmos.circle_2d(goal_vec, 48.0, Color::srgb(1.0, 0.0, 1.0));
-    gizmos.line_2d(goal_vec - Vec2::new(32.0, 32.0), goal_vec + Vec2::new(32.0, 32.0), Color::srgb(1.0, 0.0, 1.0));
-    gizmos.line_2d(goal_vec - Vec2::new(-32.0, 32.0), goal_vec + Vec2::new(-32.0, 32.0), Color::srgb(1.0, 0.0, 1.0));
+    if let Some(goal) = &state.goal_pos {
+        let goal_vec = Vec2::new(goal.x * SCALE, goal.y * SCALE);
+        gizmos.circle_2d(goal_vec, 48.0, Color::srgb(1.0, 0.0, 1.0));
+        gizmos.line_2d(goal_vec - Vec2::new(32.0, 32.0), goal_vec + Vec2::new(32.0, 32.0), Color::srgb(1.0, 0.0, 1.0));
+        gizmos.line_2d(goal_vec - Vec2::new(-32.0, 32.0), goal_vec + Vec2::new(-32.0, 32.0), Color::srgb(1.0, 0.0, 1.0));
+    }
 }
 
-fn cleanup_sim2d(mut commands: Commands, query: Query<Entity, With<Sim2DEntity>>) {
+fn cleanup_sim2d(mut commands: Commands, query: Query<Entity, With<Sim2DEntity>>, mut logs: ResMut<PlannerLog>) {
     for entity in query.iter() {
         commands.entity(entity).despawn();
     }
     commands.remove_resource::<RosBridge>();
+    logs.history.clear();
 }

@@ -5,9 +5,10 @@
 #include <algorithm>
 #include <limits>
 #include "nav2_costmap_2d/cost_values.hpp"
+#include <nlohmann/json.hpp> 
 
-GBFS_Solver::GBFS_Solver(nav2_costmap_2d::Costmap2D* costmap)
-    : PathFinder(costmap)
+GBFS_Solver::GBFS_Solver(nav2_costmap_2d::Costmap2D* costmap, rclcpp::Publisher<std_msgs::msg::String>::SharedPtr pub)
+    : PathFinder(costmap, pub)
 {
 }
 
@@ -60,9 +61,21 @@ std::vector<unsigned int> GBFS_Solver::createPath(unsigned int start_idx, unsign
             if (h_score < h_costs[neighbor_idx]) {
                 parents[neighbor_idx] = current_idx;
                 h_costs[neighbor_idx] = h_score;
+
+                nlohmann::json j;
+                j["index"] = (unsigned int)neighbor_idx;
+                j["f"] = (float)f_score;
+                j["g"] = 0.0f; 
+                j["h"] = (float)h_score;
+                
+                std_msgs::msg::String msg;
+                msg.data = j.dump();
+                if (log_pub_) log_pub_->publish(msg);
+                
                 open_set.push(GridNode(neighbor_idx, f_score, 0.0f, h_score));
                 calculation_history_.push_back({neighbor_idx, f_score, 0.0f, h_score});
             }
+
         }
     }
 
