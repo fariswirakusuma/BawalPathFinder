@@ -13,7 +13,7 @@ build_frontend:
 	@echo "=== Mengompilasi Frontend Rust (Mode Rilis) ==="
 	cd Interface && cargo build --release
 	@mkdir -p $(BIN_DIR)
-	@cp Interface/target/release/robot_simulation_interface $(BIN_DIR)/$(APP_NAME)
+	@cp Interface/target/release/BawalPathFinder $(BIN_DIR)/$(APP_NAME)
 	@echo "=== Eksekusi frontend siap di $(BIN_DIR)/$(APP_NAME) ==="
 
 run: all

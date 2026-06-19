@@ -1,8 +1,10 @@
 [package]
-name = "robot_simulation_interface"
+name = "BawalPathFinder"
 version = "0.1.0"
 edition = "2021"
-
+[[bin]]
+name = "BawalPathFinder"
+path = "src/main.rs"
 [dependencies]
 # Core
 bevy = { version = "0.18", features = ["wayland"] }

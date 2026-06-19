@@ -3,6 +3,21 @@
 version = 4
 
 [[package]]
+name = "BawalPathFinder"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "bevy_html_tailwind",
+ "glam 0.29.3",
+ "roxmltree 0.20.0",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "tungstenite",
+ "url",
+]
+
+[[package]]
 name = "ab_glyph"
 version = "0.2.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4422,21 +4437,6 @@ name = "renderdoc-sys"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "19b30a45b0cd0bcca8037f3d0dc3421eaf95327a17cad11964fb8179b4fc4832"
-
-[[package]]
-name = "robot_simulation_interface"
-version = "0.1.0"
-dependencies = [
- "bevy",
- "bevy_html_tailwind",
- "glam 0.29.3",
- "roxmltree 0.20.0",
- "serde",
- "serde_json",
- "serde_yaml",
- "tungstenite",
- "url",
-]
 
 [[package]]
 name = "rodio"

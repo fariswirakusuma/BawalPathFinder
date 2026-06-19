@@ -19,7 +19,7 @@ pub struct Simulation2dPlugin;
 #[derive(Component)]
 pub struct Sim2DEntity;
 
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone,Copy)]
 pub struct Point {
     pub x: f32,
     pub y: f32,
@@ -70,7 +70,7 @@ pub struct BackButton;
 
 const SCALE: f32 = 400.0;
 const GRID_SIZE: f32 = 0.05;
-const ROSBRIDGE_URL: &str = "ws://127.0.0.1:9090";
+// let rosbridge_url = std::env::var("ROSBRIDGE_URL").unwrap_or_else(|_| "ws://127.0.0.1:9090".to_string());
 
 impl Plugin for Simulation2dPlugin {
     fn build(&self, app: &mut App) {
@@ -143,15 +143,15 @@ fn setup_2d_grid(mut commands: Commands, config: Res<SetupConfig>, asset_server:
         let image_handle: Handle<Image> = asset_server.load(format!("Test/maps/{}", png_name));
         commands.spawn((
             Sprite { image: image_handle, custom_size: Some(Vec2::new(10.0 * SCALE, 10.0 * SCALE)), ..default() },
-            Transform::from_xyz(-1.5, 0.0, -1.0), Sim2DEntity,
+            Transform::from_xyz(0.0, 0.0, -1.0), Sim2DEntity,
         ));
     }
 }
 
-// FUNGSI INJEKSI YAML DARI RUST
 fn inject_map_to_yaml(map_name: &str) {
-    let yaml_path = "../ROS_workspace/src/navigation/config/nav2_params.yaml";
-    if let Ok(content) = fs::read_to_string(yaml_path) {
+    let yaml_path = std::env::var("NAV2_PARAMS_PATH").unwrap_or_else(|_| "../ROS_workspace/src/navigation/config/nav2_params.yaml".to_string());
+    
+    if let Ok(content) = fs::read_to_string(&yaml_path) {
         let mut new_lines = Vec::new();
         let mut in_map_server = false;
         let mut in_ros_params = false;
@@ -166,8 +166,8 @@ fn inject_map_to_yaml(map_name: &str) {
                 new_lines.push(line.to_string());
             } else if in_map_server && in_ros_params && trimmed.starts_with("yaml_filename:") {
                 let indent = line.chars().take_while(|c| c.is_whitespace()).collect::<String>();
-                let docker_path = format!("/ros2_ws/src/navigation/maps/{}", map_name);
-                new_lines.push(format!("{}yaml_filename: \"{}\"", indent, docker_path));
+                let docker_map_path = format!("/workspace/src/navigation/maps/{}", map_name);
+                new_lines.push(format!("{}yaml_filename: \"{}\"", indent, docker_map_path));
                 in_map_server = false;
                 in_ros_params = false;
             } else {
@@ -178,22 +178,22 @@ fn inject_map_to_yaml(map_name: &str) {
                 new_lines.push(line.to_string());
             }
         }
-        let _ = fs::write(yaml_path, new_lines.join("\n"));
+        let _ = fs::write(&yaml_path, new_lines.join("\n"));
     }
 }
 
 fn setup_rosbridge(mut commands: Commands, config: Res<SetupConfig>) {
     let map_name = config.map_name.clone();
-    
+    let rosbridge_url = std::env::var("ROSBRIDGE_URL").unwrap_or_else(|_| "ws://127.0.0.1:9090".to_string());
     inject_map_to_yaml(&map_name);
 
     let (tx_out, rx_out) = mpsc::channel::<String>(); 
     let (tx_in, rx_in) = mpsc::channel::<String>(); 
 
     thread::spawn(move || {
-        let url = Url::parse(ROSBRIDGE_URL).expect("URL tidak valid");
+        let url = Url::parse(&rosbridge_url).expect("URL tidak valid");
         let mut socket;
-        println!("[DEBUG] Attempting to connect to {}", ROSBRIDGE_URL);
+        println!("[DEBUG] Attempting to connect to {}", rosbridge_url);
         loop {
         match connect(url.clone()) {
             Ok((s, _)) => {
@@ -216,7 +216,8 @@ fn setup_rosbridge(mut commands: Commands, config: Res<SetupConfig>) {
         let _ = socket.send(Message::Text(subscribe_log.to_string()));
 
         if !map_name.is_empty() {
-            let docker_map_path = format!("/ros2_ws/src/navigation/maps/{}", map_name);
+            thread::sleep(std::time::Duration::from_secs(5));
+            let docker_map_path = format!("/workspace/src/navigation/maps/{}", map_name);
             let load_map_msg = serde_json::json!({
                 "op": "call_service",
                 "service": "/map_server/load_map",
@@ -278,6 +279,14 @@ fn receive_path_data(mut state: ResMut<SimulationState>, mut planner_log: ResMut
                                     state.path.push(Point { x, y });
                                 }
                             }
+
+                            if !state.path.is_empty() {
+                                if let Some(goal) = state.goal_pos {
+                                    let last_idx = state.path.len() - 1;
+                                    state.path[last_idx].x = goal.x;
+                                    state.path[last_idx].y = goal.y;
+                                }
+                            }
                         }
                     },
                     "/planner_log" => {
@@ -301,7 +310,6 @@ fn receive_path_data(mut state: ResMut<SimulationState>, mut planner_log: ResMut
         }
     }
 }
-
 fn handle_click(
     buttons: Res<ButtonInput<MouseButton>>, q_windows: Query<&Window, With<PrimaryWindow>>,
     q_camera: Query<(&Camera, &GlobalTransform), With<Sim2DEntity>>,
@@ -363,7 +371,7 @@ fn handle_click(
             state.calc_elapsed = 0.0;
             
             let payload = SimulationPayload {
-                map_size: MapSize { width: 20.0, height: 20.0, resolution: 0.05 },
+                map_size: MapSize { width: 10.0, height: 10.0, resolution: 0.05 },
                 start: Point2D { x: start.x as f64, y: start.y as f64 },
                 goal: Point2D { x: goal.x as f64, y: goal.y as f64 },
                 algorithm: if state.selected_algorithm == "UCS" { "Dijkstra".to_string() } else { state.selected_algorithm.clone() },
@@ -382,12 +390,15 @@ fn handle_click(
 
 fn draw_visualization(mut gizmos: Gizmos, state: Res<SimulationState>) {
     const VISUAL_GRID_SIZE: f32 = 0.5; 
-    for i in -40..=40 {
+    for i in -20..=20 { 
         let offset = (i as f32) * VISUAL_GRID_SIZE * SCALE;
         let color = if i == 0 { Color::srgb(0.4, 0.4, 0.4) } else { Color::srgb(0.15, 0.15, 0.15) };
-        gizmos.line_2d(Vec2::new(-2000.0, offset), Vec2::new(2000.0, offset), color);
-        gizmos.line_2d(Vec2::new(offset, -2000.0), Vec2::new(offset, 2000.0), color);
+        gizmos.line_2d(Vec2::new(-10.0 * SCALE, offset), Vec2::new(10.0 * SCALE, offset), color);
+        gizmos.line_2d(Vec2::new(offset, -10.0 * SCALE), Vec2::new(offset, 10.0 * SCALE), color);
     }
+
+    gizmos.line_2d(Vec2::new(-5.0 * SCALE, 0.0), Vec2::new(5.0 * SCALE, 0.0), Color::WHITE);
+    gizmos.line_2d(Vec2::new(0.0, -5.0 * SCALE), Vec2::new(0.0, 5.0 * SCALE), Color::WHITE);
 
     for obs in &state.obstacles {
         let center = Vec2::new(obs.x * SCALE, obs.y * SCALE);
@@ -398,18 +409,35 @@ fn draw_visualization(mut gizmos: Gizmos, state: Res<SimulationState>) {
         gizmos.line_2d(center - Vec2::new(half, half), center + Vec2::new(half, half), Color::srgb(1.0, 0.1, 0.1));
         gizmos.line_2d(center - Vec2::new(half, -half), center + Vec2::new(half, -half), Color::srgb(1.0, 0.1, 0.1));
     }
-
-    if state.path.len() > 1 {
+    if !state.path.is_empty() {
         for i in 0..state.path.len() - 1 {
-            gizmos.line_2d(Vec2::new(state.path[i].x * SCALE, state.path[i].y * SCALE), Vec2::new(state.path[i + 1].x * SCALE, state.path[i + 1].y * SCALE), Color::srgb(0.2, 0.9, 0.2));
+            gizmos.line_2d(
+                Vec2::new(state.path[i].x * SCALE, state.path[i].y * SCALE), 
+                Vec2::new(state.path[i + 1].x * SCALE, state.path[i + 1].y * SCALE), 
+                Color::srgb(0.2, 0.9, 0.2)
+            );
+        }
+
+        if let Some(goal) = state.goal_pos {
+            let last = state.path.last().unwrap();
+            gizmos.line_2d(
+                Vec2::new(last.x * SCALE, last.y * SCALE),
+                Vec2::new(goal.x * SCALE, goal.y * SCALE),
+                Color::srgb(0.2, 0.9, 0.2)
+            );
         }
     }
     
     for (i, p) in state.path.iter().enumerate() {
-        if i > 0 && i < state.path.len() - 1 { gizmos.circle_2d(Vec2::new(p.x * SCALE, p.y * SCALE), 12.0, Color::srgb(0.0, 0.6, 1.0)); }
+        if i > 0 && i < state.path.len() - 1 { 
+            gizmos.circle_2d(Vec2::new(p.x * SCALE, p.y * SCALE), 12.0, Color::srgb(0.0, 0.6, 1.0)); 
+        }
     }
     
-    if let Some(start) = &state.start_pos { gizmos.circle_2d(Vec2::new(start.x * SCALE, start.y * SCALE), 40.0, Color::srgb(1.0, 1.0, 0.0)); }
+    if let Some(start) = &state.start_pos { 
+        gizmos.circle_2d(Vec2::new(start.x * SCALE, start.y * SCALE), 40.0, Color::srgb(1.0, 1.0, 0.0)); 
+    }
+    
     if let Some(goal) = &state.goal_pos {
         let goal_vec = Vec2::new(goal.x * SCALE, goal.y * SCALE);
         gizmos.circle_2d(goal_vec, 48.0, Color::srgb(1.0, 0.0, 1.0));
@@ -418,12 +446,30 @@ fn draw_visualization(mut gizmos: Gizmos, state: Res<SimulationState>) {
     }
 }
 
-fn cleanup_sim2d(mut commands: Commands, query: Query<Entity, With<Sim2DEntity>>, mut logs: ResMut<PlannerLog>,mut state: ResMut<SimulationState>) {
+fn cleanup_sim2d(
+    mut commands: Commands, 
+    query: Query<Entity, With<Sim2DEntity>>, 
+    mut logs: ResMut<PlannerLog>,
+    mut state: ResMut<SimulationState>,
+    bridge: Option<Res<RosBridge>>
+) {
+    if let Some(b) = bridge {
+        let cancel_msg = serde_json::json!({
+            "op": "call_service",
+            "service": "/compute_path_to_pose/_action/cancel_goal",
+            "args": {}
+        });
+        let _ = b.tx.lock().unwrap().send(cancel_msg.to_string());
+
+        let rx = b.rx.lock().unwrap();
+        while let Ok(_) = rx.try_recv() {}
+        
+        commands.remove_resource::<RosBridge>();
+    }
+
     for entity in query.iter() { commands.entity(entity).despawn(); }
-    commands.remove_resource::<RosBridge>();
     logs.history.clear();
     logs.system_logs.clear();
-
     state.path.clear();
     state.obstacles.clear();
     state.start_pos = None;

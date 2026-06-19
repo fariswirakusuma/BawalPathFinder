@@ -19,8 +19,15 @@ docker run -d \
 echo "=== Menunggu ROS 2 Ready (Waiting for ROS Bridge)... ==="
 sleep 5 
 
-echo "=== Launching BawalPathFinder Executable ==="
+echo "=== Memindahkan dan Meluncurkan Executable (Release) ==="
 cd "$WORKSPACE_ROOT" || exit 1
+
+export ROSBRIDGE_URL="ws://127.0.0.1:9090"
+export NAV2_PARAMS_PATH="$WORKSPACE_ROOT/ROS_workspace/src/navigation/config/nav2_params.yaml"
+
+mkdir -p "$WORKSPACE_ROOT/bin"
+cp "$WORKSPACE_ROOT/Interface/target/release/BawalPathFinder" "$WORKSPACE_ROOT/bin/"
+
 ./bin/BawalPathFinder &
 FRONTEND_PID=$!
 
