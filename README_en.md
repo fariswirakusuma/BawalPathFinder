@@ -9,7 +9,8 @@
 ![Docker](https://img.shields.io/badge/Docker-Containerized-blue)
 
 [English](README_en.md) | [Indonesia](README.md)
-
+## Preview
+![BawalPathFinder Simulation UI](assets/astar2d_ex.png)
 ## About the Project
 **BawalPathFinder** is a robot navigation simulation system based on ROS 2 Nav2.
 - **Backend**: ROS 2 Humble (Nav2) running inside a Docker Container to ensure environment isolation.
