@@ -1,74 +1,72 @@
 # BawalPathFinder 🐟
 
-![Version](https://img.shields.io/badge/Release-v0.1.0-blue)
+![Version](https://img.shields.io/badge/Release-v0.1.0--alpha-blue)
 ![Build](https://img.shields.io/badge/Build-Makefile_Ready-success)
-![Language](https://img.shields.io/badge/Language-C++17-orange)
+![C++](https://img.shields.io/badge/C++-17-orange)
+![Bevy](https://img.shields.io/badge/Bevy-0.18-red)
+![ROS 2](https://img.shields.io/badge/ROS2-Humble-blue)
+![Python](https://img.shields.io/badge/Python-3.8+-yellow)
+![Docker](https://img.shields.io/badge/Docker-Containerized-blue)
 
 [English](README_en.md) | [Indonesia](README.md)
 
-Halo! Selamat datang di **BawalPathFinder**. Intinya ini adalah sistem simulasi robot buat nyari jalan (pathfinding). Backend-nya kita pakai **ROS 2 Humble (Nav2)** yang jalan aman di dalam Docker, nah buat tampilan visualnya (frontend) kita pakai **Bevy Engine (Rust)** yang jalan langsung di OS kamu buat nampilin grafis 2D atau 3D.
+## Tentang Proyek
+**BawalPathFinder** adalah sistem simulasi navigasi robot berbasis ROS 2 Nav2.
+- **Backend**: ROS 2 Humble (Nav2) berjalan dalam Docker Container untuk menjamin isolasi *environment*.
+- **Frontend**: Bevy Engine (Rust) untuk visualisasi 2D/3D real-time.
+- **Komunikasi**: WebSocket (Rosbridge) menghubungkan frontend Rust dengan backend ROS 2.
 
-## Kebutuhan Sistem (Biar Jalan Mulus)
+## Tech Stack
+* **Bevy (Rust)**: Engine rendering untuk antarmuka pengguna (UI) dan visualisasi jalur.
+* **ROS 2 (Humble)**: Middleware utama untuk navigasi, planning, dan *costmap*.
+* **CMake 3.10+**: Digunakan untuk membangun plugin C++ Nav2.
+* **Python 3**: Digunakan untuk script helper, pembuatan map testing, dan otomatisasi testing.
 
-Biar bisa jalan tanpa hambatan, pastikan kamu udah nyiapin ini:
-- **OS**: Linux (Sangat disarankan ya!)
-- **Rust / Bevy**: Cargo & Rustc (Edition 2021), dan Bevy Engine v0.18
-- **C++**: Harus C++17 (Syarat mutlak buat ROS 2 Humble)
-- **Docker**: Wajib ada buat ngerun backend-nya di dalam kontainer.
-- **Python 3**: Kepake buat bikin peta-peta buat testing (butuh library Pillow sama faker).
+## Algoritma Pathfinding
+Sistem ini mendukung beberapa algoritma pathfinding. Implementasi utama dilakukan di sisi C++ (Nav2 Plugins).
 
-## Tentang Docker Image
+| Algoritma | Logika Kalkulasi ($f(n) = g(n) + h(n)$) | Karakteristik |
+| :--- | :--- | :--- |
+| **A\*** | $f(n) = g(n) + h(n)$ | Optimal & Cepat (Cost + Heuristic). |
+| **GBFS** | $f(n) = h(n)$ | Sangat cepat, namun tidak selalu menjamin rute terpendek. |
+| **Dijkstra / UCS** | $f(n) = g(n)$ | Menjamin rute terpendek, tapi eksplorasi luas (lambat). |
 
-Buat ngejaga environment backend tetap rapi dan terisolasi, kita bungkus pakai Docker.
-- **Base Image**: `osrf/ros:humble-desktop`
-- **Output Image**: `nav2_backend:latest`
+* **$g(n)$**: Biaya sebenarnya dari start ke node sekarang.
+* **$h(n)$**: Estimasi biaya (Heuristic) dari node sekarang ke goal.
+
+> **Di mana meletakkan implementasi C++?**
+> Untuk menambah atau memodifikasi logika kalkulasi, masuk ke direktori:
+> `src/navigation/plugins/` atau `src/navigation/src/`
+> Pastikan Anda menyesuaikan `CMakeLists.txt` jika menambah file `.cpp` atau `.hpp` baru agar terkompilasi ke dalam *workspace* ROS.
 
 ## Cara Setup & Menjalankan
 
-Cara paling gampang dan sat-set tuh pakai perintah `make`. Gini urutannya:
+### 1. Kebutuhan Sistem
+Pastikan lingkungan Anda memenuhi spesifikasi berikut:
+- **OS**: Linux (Ubuntu 22.04 LTS sangat disarankan).
+- **Toolchain**: Rust/Cargo (Edition 2021), C++17, Python 3.8+.
+- **Docker**: Wajib untuk menjalankan backend.
 
-```bash
-# 1. Bikin dan nyiapin peta simulasinya dulu
-make map
+### 2. Command Makefile (Penting!)
+Gunakan `make rebuild_all` sebagai *command* utama untuk memastikan sinkronisasi antara *frontend* dan *backend* (ini akan melakukan build ulang UI dan re-sync Docker).
 
-# 2. Jalanin deh semuanya (otomatis nge-build Frontend & Backend kok)
-make run
-```
-
-Atau kalau kamu lebih suka jalanin script bash secara manual, bisa juga:
-
-```bash
-# Kasih izin jalan dulu ke semua file bash-nya
-chmod +x bash/*.sh
-
-# Terus tinggal jalanin deh simulasi utamanya
-./bash/run_all.sh
-```
-
-## Daftar Command Lengkap
-
-### Command Makefile
-
-Kalau kamu tim `make`, ini daftarnya:
-
-| Command | Ngapain aja tuh? |
+| Command | Deskripsi |
 | --- | --- |
-| `make all` | Nge-build frontend (Rust) sama image backend (Docker). |
-| `make build_frontend`| Nge-compile UI Rust dalam mode rilis (`--release`) ke folder `bin/`. |
-| `make build_backend` | Bikin image Docker `nav2_backend:latest` dari `Dockerfile`. |
-| `make run` | Jalanin semua sistemnya (frontend UI jalan, backend container juga jalan). |
-| `make stop` | Berhentiin container ROS sama matiin proses frontend. |
-| `make clean` | Bersihin binary frontend, cache Cargo, sama ngapus-ngapusin peta. |
-| `make map` | Bikin peta testing pakai Python terus dipindahin ke workspace ROS. |
-| `make map_clean` | Hapus semua file peta dari komputer dan workspace ROS. |
+| `make rebuild_all` | Membersihkan cache, build ulang frontend & backend container. |
+| `make run` | Menjalankan simulasi (Frontend + Backend). |
+| `make map` | Membuat file peta baru dengan Python. |
+| `make stop` | Menghentikan container ROS & proses Bevy. |
+| `make clean` | Menghapus semua file build dan cache. |
 
-### Bash Scripts (`bash/`)
+### 3. Bash Scripts
+Jika memerlukan kontrol manual:
+- `./bash/run_all.sh`: Menjalankan seluruh pipeline simulasi.
+- `./bash/run_backend.sh`: Menjalankan node navigasi secara terpisah.
+- `./bash/cleanbackend.sh`: Membersihkan proses zombie ROS 2.
 
-Kalau kamu lebih suka main di folder `bash/`:
+## Troubleshooting (Catatan v0.1.0-alpha)
+* **Visual Path Menggantung**: Nav2 menggunakan *inflation layer* (radius rintangan). Path mungkin terlihat tidak menyentuh dinding atau goal secara presisi karena robot membutuhkan *clearance*.
+* **Code 6 (Planning Failed)**: Jika goal berada di dalam zona *lethal cost* (tabrakan), Nav2 akan menolak planning.
+* **Data "Zombie"**: Jika path masih muncul setelah reset, pastikan fungsi `cleanup_sim2d` memanggil `cancel_goal` ke `/compute_path_to_pose/_action/cancel_goal` untuk menghentikan kalkulasi backend.
 
-| Script | Ngapain aja tuh? |
-| --- | --- |
-| `run_all.sh` | Bersihin container lama, bikin image docker baru, jalanin backend, sama buka UI Bevy-nya. Lengkap deh. |
-| `run_backend.sh` | Bersihin & build ulang workspace ROS, terus jalanin navigasi Nav2 dan node pelengkapnya. |
-| `cleanbackend.sh`| Basmi zombie process ROS sama bersihin file-file sisa build (kayak folder build, install, log). |
-| `entrypoint.sh` | Script bawaan yang jalan pas container Docker pertama kali dihidupin. |
+---

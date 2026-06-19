@@ -1,74 +1,72 @@
 # BawalPathFinder 🐟
 
-![Version](https://img.shields.io/badge/Release-v0.1.0-blue)
+![Version](https://img.shields.io/badge/Release-v0.1.0--alpha-blue)
 ![Build](https://img.shields.io/badge/Build-Makefile_Ready-success)
-![Language](https://img.shields.io/badge/Language-C++17-orange)
+![C++](https://img.shields.io/badge/C++-17-orange)
+![Bevy](https://img.shields.io/badge/Bevy-0.18-red)
+![ROS 2](https://img.shields.io/badge/ROS2-Humble-blue)
+![Python](https://img.shields.io/badge/Python-3.8+-yellow)
+![Docker](https://img.shields.io/badge/Docker-Containerized-blue)
 
 [English](README_en.md) | [Indonesia](README.md)
 
-Hey there! Welcome to **BawalPathFinder**. Basically, this is a robotics simulation system for pathfinding. For the backend, we're using **ROS 2 Humble (Nav2)** running safely inside Docker. As for the visuals (frontend), we're rocking the **Bevy Engine (Rust)** running natively on your OS to show off those sweet 2D/3D graphics.
+## About the Project
+**BawalPathFinder** is a robot navigation simulation system based on ROS 2 Nav2.
+- **Backend**: ROS 2 Humble (Nav2) running inside a Docker Container to ensure environment isolation.
+- **Frontend**: Bevy Engine (Rust) for real-time 2D/3D visualization.
+- **Communication**: WebSocket (Rosbridge) connecting the Rust frontend with the ROS 2 backend.
 
-## System Requirements (To Keep Things Smooth)
+## Tech Stack
+* **Bevy (Rust)**: Rendering engine for the UI and path visualization.
+* **ROS 2 (Humble)**: Primary middleware for navigation, planning, and costmaps.
+* **CMake 3.10+**: Used to build C++ Nav2 plugins.
+* **Python 3**: Used for helper scripts, testing map generation, and automation.
 
-To make sure everything runs without a hitch, make sure you have these ready:
-- **OS**: Linux (Highly recommended!)
-- **Rust / Bevy**: Cargo & Rustc (Edition 2021), and Bevy Engine v0.18
-- **C++**: Gotta be C++17 (Absolute must for ROS 2 Humble)
-- **Docker**: Mandatory for running the backend inside a container.
-- **Python 3**: Needed to generate testing maps (requires Pillow and faker libraries).
+## Pathfinding Algorithms
+This system supports several pathfinding algorithms. The core logic is implemented in C++ (Nav2 Plugins).
 
-## About the Docker Image
+| Algorithm | Calculation Logic ($f(n) = g(n) + h(n)$) | Characteristics |
+| :--- | :--- | :--- |
+| **A\*** | $f(n) = g(n) + h(n)$ | Optimal & Fast (Cost + Heuristic). |
+| **GBFS** | $f(n) = h(n)$ | Very fast, but does not guarantee the shortest path. |
+| **Dijkstra / UCS** | $f(n) = g(n)$ | Guarantees the shortest path, but exploration is broad (slow). |
 
-To keep the backend environment clean and isolated, we wrapped it up in Docker.
-- **Base Image**: `osrf/ros:humble-desktop`
-- **Output Image**: `nav2_backend:latest`
+* **$g(n)$**: The actual cost from the start to the current node.
+* **$h(n)$**: Estimated cost (Heuristic) from the current node to the goal.
+
+> **Where to put C++ implementations?**
+> To add or modify calculation logic, navigate to:
+> `src/navigation/plugins/` or `src/navigation/src/`
+> Ensure you adjust `CMakeLists.txt` if adding new `.cpp` or `.hpp` files so they compile into the ROS workspace.
 
 ## Setup & How to Run
 
-The easiest and fastest way is using `make`. Here's the drill:
+### 1. System Requirements
+Ensure your environment meets the following specifications:
+- **OS**: Linux (Ubuntu 22.04 LTS highly recommended).
+- **Toolchain**: Rust/Cargo (Edition 2021), C++17, Python 3.8+.
+- **Docker**: Mandatory to run the backend.
 
-```bash
-# 1. Generate and prep the simulation maps first
-make map
+### 2. Makefile Commands (Important!)
+Use `make rebuild_all` as your primary command to ensure synchronization between the frontend and backend (this rebuilds the UI and re-syncs Docker).
 
-# 2. Run the whole thing (it auto-builds Frontend & Backend)
-make run
-```
-
-Or, if you prefer running bash scripts manually, you can do:
-
-```bash
-# Give execution permission to all bash scripts first
-chmod +x bash/*.sh
-
-# Then just run the main simulation
-./bash/run_all.sh
-```
-
-## Full Command List
-
-### Makefile Commands
-
-If you're on team `make`, here's the list:
-
-| Command | What does it do? |
+| Command | Description |
 | --- | --- |
-| `make all` | Builds both the frontend (Rust) and the backend image (Docker). |
-| `make build_frontend`| Compiles the Rust UI in release mode (`--release`) into the `bin/` folder. |
-| `make build_backend` | Creates the `nav2_backend:latest` Docker image from the `Dockerfile`. |
-| `make run` | Runs the entire system (spins up the UI frontend and the backend container). |
-| `make stop` | Stops the ROS container and kills the frontend process. |
-| `make clean` | Wipes the frontend binaries, Cargo cache, and deletes the maps. |
-| `make map` | Generates synthetic testing maps using Python and moves them to the ROS workspace. |
-| `make map_clean` | Deletes all map files from your computer and the ROS workspace. |
+| `make rebuild_all` | Cleans cache, rebuilds frontend & backend container. |
+| `make run` | Runs the simulation (Frontend + Backend). |
+| `make map` | Generates new map files using Python. |
+| `make stop` | Stops the ROS container & Bevy process. |
+| `make clean` | Deletes all build files and cache. |
 
-### Bash Scripts (`bash/`)
+### 3. Bash Scripts
+If you prefer manual control:
+- `./bash/run_all.sh`: Runs the entire simulation pipeline.
+- `./bash/run_backend.sh`: Runs the navigation nodes separately.
+- `./bash/cleanbackend.sh`: Cleans up ROS 2 zombie processes.
 
-If you'd rather hang out in the `bash/` folder:
+## Troubleshooting (Notes for v0.1.0-alpha)
+* **Visual Path "Hanging"**: Nav2 uses an *inflation layer* (obstacle radius). The path may appear not to touch walls or goals precisely because the robot requires clearance.
+* **Code 6 (Planning Failed)**: If the goal is inside a *lethal cost* zone (collision), Nav2 will reject planning.
+* **"Zombie" Data**: If the path still appears after resetting, ensure the `cleanup_sim2d` function calls `cancel_goal` to `/compute_path_to_pose/_action/cancel_goal` to terminate backend calculations.
 
-| Script | What does it do? |
-| --- | --- |
-| `run_all.sh` | Cleans up old containers, builds a new docker image, runs the backend, and launches the Bevy UI. The whole package. |
-| `run_backend.sh` | Cleans & rebuilds the ROS workspace, then runs Nav2 navigation and its sidekick nodes. |
-| `cleanbackend.sh`| Kills ROS zombie processes and cleans up leftover build files (like build, install, and log folders). |
-| `entrypoint.sh` | The default script that runs when the Docker container first starts up. |
+---
