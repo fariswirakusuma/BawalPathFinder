@@ -64,9 +64,8 @@ If you prefer manual control:
 - `./bash/run_backend.sh`: Runs the navigation nodes separately.
 - `./bash/cleanbackend.sh`: Cleans up ROS 2 zombie processes.
 
-## Troubleshooting (Notes for v0.1.0-alpha)
-* **Visual Path "Hanging"**: Nav2 uses an *inflation layer* (obstacle radius). The path may appear not to touch walls or goals precisely because the robot requires clearance.
-* **Code 6 (Planning Failed)**: If the goal is inside a *lethal cost* zone (collision), Nav2 will reject planning.
-* **"Zombie" Data**: If the path still appears after resetting, ensure the `cleanup_sim2d` function calls `cancel_goal` to `/compute_path_to_pose/_action/cancel_goal` to terminate backend calculations.
-
----
+> [!NOTE]
+> **Troubleshooting (Notes for v0.1.0-alpha)**
+> * **Visual Path "Hanging"**: Nav2 uses an *inflation layer* (obstacle radius). The path may appear not to touch walls or goals precisely because the robot requires clearance.
+> * **Code 6 (Planning Failed)**: If the goal is inside a *lethal cost* zone (collision), Nav2 will reject planning.
+> * **"Zombie" Data**: If the path still appears after resetting, ensure the `cleanup_sim2d` function calls `cancel_goal` to `/compute_path_to_pose/_action/cancel_goal` to terminate backend calculations.

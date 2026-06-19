@@ -64,9 +64,9 @@ Jika memerlukan kontrol manual:
 - `./bash/run_backend.sh`: Menjalankan node navigasi secara terpisah.
 - `./bash/cleanbackend.sh`: Membersihkan proses zombie ROS 2.
 
-## Troubleshooting (Catatan v0.1.0-alpha)
-* **Visual Path Menggantung**: Nav2 menggunakan *inflation layer* (radius rintangan). Path mungkin terlihat tidak menyentuh dinding atau goal secara presisi karena robot membutuhkan *clearance*.
-* **Code 6 (Planning Failed)**: Jika goal berada di dalam zona *lethal cost* (tabrakan), Nav2 akan menolak planning.
-* **Data "Zombie"**: Jika path masih muncul setelah reset, pastikan fungsi `cleanup_sim2d` memanggil `cancel_goal` ke `/compute_path_to_pose/_action/cancel_goal` untuk menghentikan kalkulasi backend.
-
+> [!NOTE]
+> **Troubleshooting (Catatan v0.1.0-alpha)**
+> * **Visual Path Menggantung**: Nav2 menggunakan *inflation layer* (radius rintangan). Path mungkin terlihat tidak menyentuh dinding atau goal secara presisi karena robot membutuhkan *clearance*.
+> * **Code 6 (Planning Failed)**: Jika goal berada di dalam zona *lethal cost* (tabrakan), Nav2 akan menolak planning.
+> * **Data "Zombie"**: Jika path masih muncul setelah reset, pastikan fungsi `cleanup_sim2d` memanggil `cancel_goal` ke `/compute_path_to_pose/_action/cancel_goal` untuk menghentikan kalkulasi backend.   
 ---
